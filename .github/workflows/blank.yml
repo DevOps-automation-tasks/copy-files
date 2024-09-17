@@ -1,0 +1,99 @@
+name: Copy Tekton Files for New Release
+
+on:
+  workflow_dispatch:  # Allow manual triggering of the workflow
+  push:
+    paths-ignore:
+      - 'bundle/manifests/rhods-operator.clusterserviceversion.yml'
+
+jobs:
+  copy-tekton-files:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout automation repository
+      uses: actions/checkout@v3
+
+    - name: Fetch all branches
+      run: |
+        git fetch --all
+    
+    - name: Get previous and new release branches
+      run: |
+        # Set previous and new release branch names in rhoai-x.y format
+        PREVIOUS_VERSION="x.y-1"
+        NEW_VERSION="x.y"
+        PREVIOUS_BRANCH="rhoai-${PREVIOUS_VERSION}"
+        NEW_BRANCH="rhoai-${NEW_VERSION}"
+        echo "PREVIOUS_BRANCH=$PREVIOUS_BRANCH" >> $GITHUB_ENV
+        echo "NEW_BRANCH=$NEW_BRANCH" >> $GITHUB_ENV
+
+    - name: Checkout previous release branch
+      run: git checkout ${{ env.PREVIOUS_BRANCH }}
+
+    - name: Copy Tekton files
+      run: |
+        # Modify this path if your Tekton files are in a specific directory
+        cp -r tekton/ ../tekton_copy/
+
+    - name: Replace version name in Tekton files
+      run: |
+        cd ../tekton_copy/
+        find . -type f -exec sed -i "s/$PREVIOUS_BRANCH/$NEW_BRANCH/g" {} +
+
+    - name: Create and push new branch with Tekton files
+      run: |
+        git checkout -b ${{ env.NEW_BRANCH }}
+        mv ../tekton_copy/* ./tekton/
+        git add .
+        git commit -m "Copy Tekton files from $PREVIOUS_BRANCH to $NEW_BRANCH"
+        git push origin ${{ env.NEW_BRANCH }}
+
+    - name: Disable Bundle Nudging
+      run: |
+        # Ensure bundle nudging is disabled for bundle builds
+        git checkout ${{ env.NEW_BRANCH }}
+        echo 'Disabling bundle nudging'
+        # Add on-cel rule to bundle push/pulls
+        sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
+        git add .github/workflows/bundle-push.yml
+        git commit -m "Disable bundle nudging for $NEW_BRANCH"
+        git push origin ${{ env.NEW_BRANCH }}
+
+  apply-to-repos:
+    needs: [copy-tekton-files]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout automation repository
+      uses: actions/checkout@v3
+
+    - name: Read repos from file
+      id: read_repos
+      run: |
+        # Read the repos from the repos.txt file
+        REPOS=$(cat repos.txt)
+        echo "REPOS=$REPOS" >> $GITHUB_ENV
+
+    - name: Iterate over repos
+      run: |
+        # Loop through each repository and apply the changes
+        for repo in ${{ env.REPOS }}; do
+          echo "Processing repository: $repo"
+          
+          # Clone the repository
+          git clone https://github.com/organization-name/$repo.git
+          cd $repo
+          
+          # Checkout the new release branch
+          git checkout ${{ env.NEW_BRANCH }} || git checkout -b ${{ env.NEW_BRANCH }}
+          
+          # Apply Tekton file changes
+          cp ../tekton_copy/* ./tekton/
+          git add .
+          git commit -m "Apply Tekton updates to ${{ env.NEW_BRANCH }}"
+          
+          # Push changes to the new branch
+          git push origin ${{ env.NEW_BRANCH }}
+          
+          cd ..
+          rm -rf $repo  # Clean up for next repository
+        done
