@@ -51,17 +51,13 @@ jobs:
           PREV_MINOR=$((MINOR-1))
           PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
 
-          # Check out the latest branch
-          git checkout $latest_branch
-
-          # Create a temporary directory to hold Tekton files from the previous branch
-          mkdir -p ../tekton_copy
-
           # Check out the previous branch
           git checkout $PREV_BRANCH
           
           # Ensure Tekton files exist in the previous branch
           if [ -d ".tekton" ]; then
+            # Copy Tekton files to a temporary directory
+            mkdir -p ../tekton_copy
             cp -r .tekton/* ../tekton_copy/
           else
             echo "Tekton directory does not exist in branch $PREV_BRANCH."
@@ -73,16 +69,19 @@ jobs:
           # Check out the latest branch
           git checkout $latest_branch
 
-          # Copy Tekton files from the previous branch
+          # Ensure the target .tekton directory exists in the latest branch
+          mkdir -p .tekton
+
+          # Copy Tekton files from the temporary directory to the latest branch
           if [ -d "../tekton_copy" ]; then
-            cp -r ../tekton_copy/* ./.tekton/
+            cp -r ../tekton_copy/* .tekton/
           else
             echo "Tekton copy directory does not exist."
             cd ..
             rm -rf $repo_name
             continue
           fi
-            
+
           # Replace version names in Tekton files
           find ./.tekton/ -type f -exec sed -i "s/${PREV_BRANCH}/${latest_branch}/g" {} +
 
