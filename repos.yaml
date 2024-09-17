@@ -1,3 +1,2 @@
-git:
-- name: codeflare-operator
-  repo-url: https://github.com/rhoai-rhtap/codeflare-operator.git
+https://github.com/rhoai-rhtap/codeflare-operator.git
+https://github.com/rhoai-rhtap/another-repo.git
