@@ -9,23 +9,52 @@ jobs:
     steps:
     - name: Checkout automation repository
       uses: actions/checkout@v3
-      
-    - name: Ensure repos.txt is in the directory
-      run: ls -al  # List directory contents to verify repos.txt location
 
-    - name: Read and parse repos.txt
+    - name: Ensure repos.yaml is in the directory
+      run: ls -al  # List directory contents to verify repos.yaml location
+
+    - name: Install Python and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3 python3-pip
+        pip3 install pyyaml
+
+    - name: Read and parse repos.yaml
       id: read_repos
       run: |
-        # Use yq to parse the YAML file
-        # Ensure yq is installed
-        sudo apt-get update && sudo apt-get install -y yq
+        import yaml
+
+        # Load the YAML file
+        with open('repos.yaml', 'r') as file:
+            data = yaml.safe_load(file)
         
         # Extract repo URLs
-        REPOS=$(yq eval '.git[].repo-url' repos.txt)
-        echo "REPOS=$REPOS" >> $GITHUB_ENV
+        repos = [repo['repo-url'] for repo in data['git']]
+        
+        # Print repos for debugging
+        print("Repos:", repos)
+        
+        # Export repos as environment variable
+        with open('/tmp/repos.txt', 'w') as file:
+            for repo in repos:
+                file.write(f"{repo}\n")
+        
+        print(f"REPOS_FILE=/tmp/repos.txt")
+        print(f"REPOS={','.join(repos)}")
+        with open('/tmp/env.txt', 'w') as file:
+            file.write(f"REPOS_FILE=/tmp/repos.txt\nREPOS={','.join(repos)}")
+
+    - name: Upload environment file for next steps
+      uses: actions/upload-artifact@v3
+      with:
+        name: env
+        path: /tmp/env.txt
 
     - name: Iterate over repos
       run: |
+        # Load the environment variables
+        source /tmp/env.txt
+
         # Set the new version (or take it as input)
         NEW_VERSION="2.13"  # Set manually or pass as input
 
@@ -45,7 +74,7 @@ jobs:
         echo "Previous branch: $PREVIOUS_BRANCH"
 
         # Loop through each repository and perform the required operations
-        for repo_url in ${{ env.REPOS }}; do
+        while IFS= read -r repo_url; do
           repo_name=$(basename $repo_url .git)
           echo "Cloning repository: $repo_url"
           
@@ -89,4 +118,4 @@ jobs:
 
           cd ..
           rm -rf $repo_name  # Clean up for the next repository
-        done
+        done < $REPOS_FILE
