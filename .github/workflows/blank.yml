@@ -45,59 +45,58 @@ jobs:
 
           echo "Latest branch in $repo_name: $latest_branch"
 
-          # Derive the new branch name
+          # Derive the previous branch name (e.g., rhoai-2.13 from rhoai-2.14)
           MAJOR=$(echo $latest_branch | cut -d. -f1 | sed 's/rhoai-//')
           MINOR=$(echo $latest_branch | cut -d. -f2)
-          NEW_MINOR=$((MINOR+1))
-          NEW_BRANCH="rhoai-${MAJOR}.${NEW_MINOR}"
+          PREV_MINOR=$((MINOR-1))
+          PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
 
           # Check out the latest branch
           git checkout $latest_branch
 
+          # Create a temporary directory to hold Tekton files from the previous branch
+          mkdir -p ../tekton_copy
+
+          # Check out the previous branch
+          git checkout $PREV_BRANCH
+          
           # Ensure Tekton files exist in the previous branch
-          if git show-ref --verify --quiet "refs/heads/rhoai-${MAJOR}.${MINOR}"; then
-            git checkout rhoai-${MAJOR}.${MINOR}
-            mkdir -p ../tekton_copy
-
-            if [ -d ".tekton" ]; then
-              cp -r .tekton/* ../tekton_copy/
-            else
-              echo "Tekton directory does not exist in branch rhoai-${MAJOR}.${MINOR}."
-              cd ..
-              rm -rf $repo_name
-              continue
-            fi
-
-            # Check out the new branch
-            git checkout $latest_branch
-
-            # Copy Tekton files from previous branch
-            if [ -d "../tekton_copy" ]; then
-              cp -r ../tekton_copy/* ./.tekton/
-            else
-              echo "Tekton copy directory does not exist."
-              cd ..
-              rm -rf $repo_name
-              continue
-            fi
-            
-            # Replace version names in Tekton files
-            find ./.tekton/ -type f -exec sed -i "s/${latest_branch}/${NEW_BRANCH}/g" {} +
-
-            # Create a new branch and apply changes
-            git checkout -b $NEW_BRANCH
-            git add .
-            git commit -m "Copy Tekton files from rhoai-${MAJOR}.${MINOR} to $NEW_BRANCH"
-            git push origin $NEW_BRANCH
-            
-            # Disable Bundle Nudging (adding the on-cel rule)
-            sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
-            git add .github/workflows/bundle-push.yml
-            git commit -m "Disable bundle nudging for $NEW_BRANCH"
-            git push origin $NEW_BRANCH
+          if [ -d ".tekton" ]; then
+            cp -r .tekton/* ../tekton_copy/
           else
-            echo "Previous branch rhoai-${MAJOR}.${MINOR} does not exist in $repo_name."
+            echo "Tekton directory does not exist in branch $PREV_BRANCH."
+            cd ..
+            rm -rf $repo_name
+            continue
           fi
+
+          # Check out the latest branch
+          git checkout $latest_branch
+
+          # Copy Tekton files from the previous branch
+          if [ -d "../tekton_copy" ]; then
+            cp -r ../tekton_copy/* ./.tekton/
+          else
+            echo "Tekton copy directory does not exist."
+            cd ..
+            rm -rf $repo_name
+            continue
+          fi
+            
+          # Replace version names in Tekton files
+          find ./.tekton/ -type f -exec sed -i "s/${PREV_BRANCH}/${latest_branch}/g" {} +
+
+          # Create a new branch and apply changes
+          git checkout -b $latest_branch
+          git add .
+          git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
+          git push origin $latest_branch
+            
+          # Disable Bundle Nudging (adding the on-cel rule)
+          sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
+          git add .github/workflows/bundle-push.yml
+          git commit -m "Disable bundle nudging for $latest_branch"
+          git push origin $latest_branch
 
           cd ..
           rm -rf $repo_name  # Clean up for the next repository
