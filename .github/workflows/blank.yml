@@ -18,10 +18,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git
 
-    - name: Determine latest branch
-      id: get_latest_branch
+    - name: Read and process repos.txt
+      id: process_repos
       run: |
-        # Read repos.txt and find the latest branch for each repository
+        # Read repos.txt and process each repository
         while IFS= read -r repo_url; do
           repo_name=$(basename $repo_url .git)
           echo "Cloning repository: $repo_url"
@@ -54,26 +54,35 @@ jobs:
           # Check out the latest branch
           git checkout $latest_branch
 
-          # Copy Tekton files
-          cp -r tekton/ ../tekton_copy/
+          # Ensure Tekton files exist in the previous branch
+          if git show-ref --verify --quiet "refs/heads/rhoai-${MAJOR}.${MINOR}"; then
+            git checkout rhoai-${MAJOR}.${MINOR}
+            mkdir -p ../tekton_copy
+            cp -r tekton/* ../tekton_copy/
 
-          # Replace version names in Tekton files
-          cd ../tekton_copy/
-          find . -type f -exec sed -i "s/${latest_branch}/${NEW_BRANCH}/g" {} +
-          
-          # Create a new branch and apply changes
-          cd ../$repo_name
-          git checkout -b $NEW_BRANCH
-          mv ../tekton_copy/* ./tekton/
-          git add .
-          git commit -m "Copy Tekton files from $latest_branch to $NEW_BRANCH"
-          git push origin $NEW_BRANCH
-          
-          # Disable Bundle Nudging (adding the on-cel rule)
-          sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
-          git add .github/workflows/bundle-push.yml
-          git commit -m "Disable bundle nudging for $NEW_BRANCH"
-          git push origin $NEW_BRANCH
+            # Check out the new branch
+            git checkout $latest_branch
+
+            # Copy Tekton files from previous branch
+            cp -r ../tekton_copy/* ./tekton/
+            
+            # Replace version names in Tekton files
+            find tekton/ -type f -exec sed -i "s/${latest_branch}/${NEW_BRANCH}/g" {} +
+            
+            # Create a new branch and apply changes
+            git checkout -b $NEW_BRANCH
+            git add .
+            git commit -m "Copy Tekton files from rhoai-${MAJOR}.${MINOR} to $NEW_BRANCH"
+            git push origin $NEW_BRANCH
+            
+            # Disable Bundle Nudging (adding the on-cel rule)
+            sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
+            git add .github/workflows/bundle-push.yml
+            git commit -m "Disable bundle nudging for $NEW_BRANCH"
+            git push origin $NEW_BRANCH
+          else
+            echo "Previous branch rhoai-${MAJOR}.${MINOR} does not exist in $repo_name."
+          fi
 
           cd ..
           rm -rf $repo_name  # Clean up for the next repository
