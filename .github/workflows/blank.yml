@@ -7,11 +7,21 @@ jobs:
   copy-tekton-files:
     runs-on: ubuntu-latest
     steps:
-    - name: Read repos from file
+    - name: Checkout automation repository
+      uses: actions/checkout@v3
+      
+    - name: Ensure repos.txt is in the directory
+      run: ls -al  # List directory contents to verify repos.txt location
+
+    - name: Read and parse repos.txt
       id: read_repos
       run: |
-        # Read the repos from the repos.txt file
-        REPOS=$(cat repos.txt)
+        # Use yq to parse the YAML file
+        # Ensure yq is installed
+        sudo apt-get update && sudo apt-get install -y yq
+        
+        # Extract repo URLs
+        REPOS=$(yq eval '.git[].repo-url' repos.txt)
         echo "REPOS=$REPOS" >> $GITHUB_ENV
 
     - name: Iterate over repos
@@ -35,12 +45,13 @@ jobs:
         echo "Previous branch: $PREVIOUS_BRANCH"
 
         # Loop through each repository and perform the required operations
-        for repo in ${{ env.REPOS }}; do
-          echo "Cloning repository: $repo"
+        for repo_url in ${{ env.REPOS }}; do
+          repo_name=$(basename $repo_url .git)
+          echo "Cloning repository: $repo_url"
           
           # Clone the repository
-          git clone https://github.com/organization-name/$repo.git
-          cd $repo
+          git clone $repo_url
+          cd $repo_name
           
           # Fetch all branches
           git fetch --all
@@ -49,9 +60,9 @@ jobs:
           if git show-ref --verify --quiet "refs/heads/${PREVIOUS_BRANCH}"; then
             git checkout $PREVIOUS_BRANCH
           else
-            echo "Previous branch $PREVIOUS_BRANCH does not exist for $repo. Skipping."
+            echo "Previous branch $PREVIOUS_BRANCH does not exist for $repo_name. Skipping."
             cd ..
-            rm -rf $repo
+            rm -rf $repo_name
             continue
           fi
           
@@ -63,7 +74,7 @@ jobs:
           find . -type f -exec sed -i "s/${PREVIOUS_BRANCH}/${NEW_BRANCH}/g" {} +
           
           # Create a new branch and apply changes
-          cd ../$repo
+          cd ../$repo_name
           git checkout -b $NEW_BRANCH
           mv ../tekton_copy/* ./tekton/
           git add .
@@ -77,5 +88,5 @@ jobs:
           git push origin $NEW_BRANCH
 
           cd ..
-          rm -rf $repo  # Clean up for the next repository
+          rm -rf $repo_name  # Clean up for the next repository
         done
