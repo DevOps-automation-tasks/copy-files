@@ -58,17 +58,32 @@ jobs:
           if git show-ref --verify --quiet "refs/heads/rhoai-${MAJOR}.${MINOR}"; then
             git checkout rhoai-${MAJOR}.${MINOR}
             mkdir -p ../tekton_copy
-            cp -r tekton/* ../tekton_copy/
+
+            if [ -d ".tekton" ]; then
+              cp -r .tekton/* ../tekton_copy/
+            else
+              echo "Tekton directory does not exist in branch rhoai-${MAJOR}.${MINOR}."
+              cd ..
+              rm -rf $repo_name
+              continue
+            fi
 
             # Check out the new branch
             git checkout $latest_branch
 
             # Copy Tekton files from previous branch
-            cp -r ../tekton_copy/* ./tekton/
+            if [ -d "../tekton_copy" ]; then
+              cp -r ../tekton_copy/* ./.tekton/
+            else
+              echo "Tekton copy directory does not exist."
+              cd ..
+              rm -rf $repo_name
+              continue
+            fi
             
             # Replace version names in Tekton files
-            find tekton/ -type f -exec sed -i "s/${latest_branch}/${NEW_BRANCH}/g" {} +
-            
+            find ./.tekton/ -type f -exec sed -i "s/${latest_branch}/${NEW_BRANCH}/g" {} +
+
             # Create a new branch and apply changes
             git checkout -b $NEW_BRANCH
             git add .
