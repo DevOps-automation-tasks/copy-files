@@ -132,7 +132,7 @@ jobs:
             git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
 
             # Push changes to the respective repository
-            push_url="https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${repo_url#https://github.com/}"
+            push_url="${repo_url}"
             echo "Pushing changes to $push_url"
             if ! git push "$push_url" "$latest_branch"; then
               echo "Failed to push changes to $push_url"
