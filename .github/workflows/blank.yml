@@ -52,8 +52,8 @@ jobs:
           PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
 
           # Check out the previous branch
-          git checkout $PREV_BRANCH
-          
+          git checkout $PREV_BRANCH || { echo "Branch $PREV_BRANCH does not exist"; cd ..; rm -rf $repo_name; continue; }
+
           # Ensure Tekton files exist in the previous branch
           if [ -d ".tekton" ]; then
             # Copy Tekton files to a temporary directory
@@ -82,20 +82,18 @@ jobs:
             continue
           fi
 
-          # Replace version names in Tekton files
-          find ./.tekton/ -type f -exec sed -i "s/${PREV_BRANCH}/${latest_branch}/g" {} +
-
-          # Create a new branch and apply changes
-          git checkout -b $latest_branch
-          git add .
+          # Commit and push changes to the latest branch
+          git add .tekton
           git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
           git push origin $latest_branch
-            
-          # Disable Bundle Nudging (adding the on-cel rule)
-          sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
-          git add .github/workflows/bundle-push.yml
-          git commit -m "Disable bundle nudging for $latest_branch"
-          git push origin $latest_branch
+
+          # Optionally, disable bundle nudging (add the on-cel rule)
+          if [ -f ".github/workflows/bundle-push.yml" ]; then
+            sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
+            git add .github/workflows/bundle-push.yml
+            git commit -m "Disable bundle nudging for $latest_branch"
+            git push origin $latest_branch
+          fi
 
           cd ..
           rm -rf $repo_name  # Clean up for the next repository
