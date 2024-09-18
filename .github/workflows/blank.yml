@@ -12,13 +12,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git for Actions
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Set the remote URL to include the GitHub token
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-
       - name: Ensure repos.txt is in the directory
         run: ls -al  # List directory contents to verify repos.txt location
 
@@ -30,7 +23,6 @@ jobs:
       - name: Read and process repos.txt
         id: process_repos
         run: |
-          # Read repos.txt and process each repository
           while IFS= read -r repo_url; do
             repo_name=$(basename $repo_url .git)
             echo "Cloning repository: $repo_url"
@@ -41,6 +33,7 @@ jobs:
             
             # Fetch all branches
             git fetch --all
+            
             # Get the latest branch matching the pattern 'rhoai-x.y'
             latest_branch=$(git branch -r | grep -o 'origin/rhoai-[0-9]*\.[0-9]*' | sed 's/origin\///' | sort -V | tail -n 1)
             if [ -z "$latest_branch" ]; then
@@ -50,13 +43,16 @@ jobs:
               continue
             fi
             echo "Latest branch in $repo_name: $latest_branch"
+            
             # Derive the previous branch name (e.g., rhoai-2.13 from rhoai-2.14)
             MAJOR=$(echo $latest_branch | cut -d. -f1 | sed 's/rhoai-//')
             MINOR=$(echo $latest_branch | cut -d. -f2)
             PREV_MINOR=$((MINOR-1))
             PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
+            
             # Check out the previous branch
             git checkout $PREV_BRANCH || { echo "Branch $PREV_BRANCH does not exist"; cd ..; rm -rf $repo_name; continue; }
+            
             # Ensure Tekton files exist in the previous branch
             if [ -d ".tekton" ]; then
               # Copy Tekton files to a temporary directory
@@ -68,6 +64,7 @@ jobs:
               rm -rf $repo_name
               continue
             fi
+            
             # Check out the latest branch
             git checkout $latest_branch
             # Ensure the target .tekton directory exists in the latest branch
@@ -81,17 +78,22 @@ jobs:
               rm -rf $repo_name
               continue
             fi
-            # Commit and push changes to the latest branch
+            
+            # Set Git identity and push changes
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .tekton
             git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
             git push origin $latest_branch
-            # Optionally, disable bundle nudging (add the on-cel rule)
+            
+            # Optionally, disable bundle nudging
             if [ -f ".github/workflows/bundle-push.yml" ]; then
               sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
               git add .github/workflows/bundle-push.yml
               git commit -m "Disable bundle nudging for $latest_branch"
               git push origin $latest_branch
             fi
+            
             cd ..
             rm -rf $repo_name  # Clean up for the next repository
           done < repos.txt
