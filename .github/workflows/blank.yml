@@ -51,7 +51,7 @@ jobs:
               continue
             fi
 
-            cd "$repo_name" || { echo "Failed to enter directory $repo_name"; continue; }
+            cd "$repo_name" || { echo "Failed to enter directory $repo_name"; cd ..; rm -rf "$repo_name"; continue; }
 
             # Fetch all branches
             git fetch --all
