@@ -82,9 +82,9 @@ jobs:
 
             # Ensure Tekton files exist in the previous branch
             if [ -d ".tekton" ]; then
-              # Copy Tekton files to a temporary directory
-              mkdir -p ../tekton_copy
-              cp -r .tekton/* ../tekton_copy/
+              # Copy Tekton files to a temporary directory within the repository folder
+              mkdir -p ../tekton_copy_$repo_name
+              cp -r .tekton/* ../tekton_copy_$repo_name/
               echo "Copied Tekton files from $PREV_BRANCH to temporary directory."
             else
               echo "Tekton directory does not exist in branch $PREV_BRANCH."
@@ -105,8 +105,8 @@ jobs:
 
             # Ensure Tekton directory exists in the latest branch and copy files
             mkdir -p .tekton
-            if [ -d "../tekton_copy" ]; then
-              cp -r ../tekton_copy/* .tekton/
+            if [ -d "../tekton_copy_$repo_name" ]; then
+              cp -r ../tekton_copy_$repo_name/* .tekton/
               echo "Copied Tekton files to .tekton directory in branch $latest_branch."
             else
               echo "Tekton copy directory does not exist."
@@ -121,23 +121,22 @@ jobs:
 
             if git diff --staged --quiet; then
               echo "No changes to commit for branch $latest_branch."
-              cd ..
-              rm -rf "$repo_name"
-              continue
-            fi
+            else
+              # Set Git identity and commit changes
+              git config user.name "github-actions"
+              git config user.email "github-actions@users.noreply.github.com"
+              git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
 
-            # Set Git identity and commit changes
-            git config user.name "github-actions"
-            git config user.email "github-actions@users.noreply.github.com"
-            git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
-
-            # Push changes to the respective repository
-            echo "Pushing changes to $repo_url"
-            if ! git push origin "$latest_branch"; then
-              echo "Failed to push changes to $repo_url"
+              # Push changes to the respective repository
+              echo "Pushing changes to $repo_url"
+              if ! git push origin "$latest_branch"; then
+                echo "Failed to push changes to $repo_url"
+              fi
             fi
 
             # Clean up for the next repository
             cd ..
             rm -rf "$repo_name"
+            rm -rf ../tekton_copy_$repo_name
+
           done < automation_repo/repos.txt
