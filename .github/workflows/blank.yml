@@ -116,24 +116,22 @@ jobs:
                 sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
             
-                # Update pipelinesascode.tekton.dev/on-cel-expression for pull_request events
-                sed -i "/pipelinesascode.tekton.dev\/on-cel-expression:/{
-                  n; s/\(target_branch[[:space:]]*==[[:space:]]*\"$new_rhoai\"\)/\1 && !\"bundle\/manifests\/rhods-operator.clusterserviceversion.yml\".pathChanged()/
-                }" "$new_file_name"
-            
                 # Ensure condition is added for pull_request events if it's not already present
-                if ! grep -q "&& !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"; then
-                  sed -i "/pipelinesascode.tekton.dev\/on-cel-expression:/{
-                    n; s/\(target_branch[[:space:]]*==[[:space:]]*\"$new_rhoai\"\)/\1 && !\"bundle\/manifests\/rhods-operator.clusterserviceversion.yml\".pathChanged()/
-                  }" "$new_file_name"
-                  echo "Added missing condition for $new_rhoai in $new_file_name."
+                if grep -q "target_branch[[:space:]]*==[[:space:]]*\"$new_rhoai\"" "$new_file_name"; then
+                  if ! grep -q "&& !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"; then
+                    sed -i "/target_branch[[:space:]]*==[[:space:]]*\"$new_rhoai\"/a \ \ \ \ && !\"bundle\/manifests\/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"
+                    echo "Added missing condition for $new_rhoai in $new_file_name."
+                  else
+                    echo "Condition already exists for $new_rhoai in $new_file_name."
+                  fi
                 else
-                  echo "Condition already exists for $new_rhoai in $new_file_name."
+                  echo "Target branch $new_rhoai not found in $new_file_name."
                 fi
             
                 echo "Updated pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
               fi
             done
+
 
 
 
