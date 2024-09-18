@@ -26,9 +26,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git
 
-      - name: Read and process repos.txt
+      - name: Process Repositories
         id: process_repos
         run: |
+          # Ensure repos.txt exists
           if [ ! -f automation_repo/repos.txt ]; then
             echo "Error: repos.txt not found."
             exit 1
@@ -44,12 +45,8 @@ jobs:
             echo "Processing repository: $repo_url"
 
             # Clone the repository
-            if ! git clone "$repo_url"; then
-              echo "Failed to clone $repo_url"
-              continue
-            fi
-
-            cd "$repo_name" || { echo "Failed to enter directory $repo_name"; cd ..; rm -rf "$repo_name"; continue; }
+            git clone "$repo_url"
+            cd "$repo_name" || { echo "Failed to enter directory $repo_name"; continue; }
 
             # Configure Git to use the GitHub token for authentication
             git config --global url."https://${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
