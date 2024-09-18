@@ -10,6 +10,12 @@ jobs:
       - name: Checkout automation repository
         uses: actions/checkout@v3
 
+      - name: Configure Git for Actions
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
       - name: Ensure repos.txt is in the directory
         run: ls -al  # List directory contents to verify repos.txt location
 
@@ -72,9 +78,6 @@ jobs:
               rm -rf $repo_name
               continue
             fi
-            # Set Git identity using built-in GitHub Actions token
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             # Commit and push changes to the latest branch
             git add .tekton
             git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
