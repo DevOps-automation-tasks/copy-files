@@ -29,7 +29,6 @@ jobs:
       - name: Read and process repos.txt
         id: process_repos
         run: |
-          # Ensure repos.txt is correctly located
           if [ ! -f automation_repo/repos.txt ]; then
             echo "Error: repos.txt not found."
             exit 1
@@ -37,7 +36,6 @@ jobs:
 
           # Read each repository URL from repos.txt
           while IFS= read -r repo_url; do
-            # Skip empty lines and comments
             if [[ -z "$repo_url" || "$repo_url" =~ ^# ]]; then
               continue
             fi
@@ -133,7 +131,7 @@ jobs:
             git config user.email "github-actions@users.noreply.github.com"
             git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
 
-            # Push changes
+            # Push changes to the respective repository
             push_url="https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${repo_url#https://github.com/}"
             echo "Pushing changes to $push_url"
             if ! git push "$push_url" "$latest_branch"; then
