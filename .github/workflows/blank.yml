@@ -93,6 +93,27 @@ jobs:
               continue
             fi
 
+            # Increment version in filenames and file contents
+            for file in ../tekton_copy_$repo_name/*; do
+              if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
+                # Extract the current version numbers
+                major_version="${BASH_REMATCH[1]}"
+                minor_version="${BASH_REMATCH[2]}"
+                new_minor_version=$((minor_version + 1))
+                current_version="v${major_version}-${minor_version}"
+                new_version="v${major_version}-${new_minor_version}"
+
+                # Rename the file by incrementing the version number
+                new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
+                mv "$file" "$new_file_name"
+                echo "Renamed file: $file to $new_file_name"
+
+                # Replace the version number inside the file
+                sed -i "s/$current_version/$new_version/g" "$new_file_name"
+                echo "Updated version inside $new_file_name from $current_version to $new_version"
+              fi
+            done
+
             # Check out the latest branch
             if ! git checkout "$latest_branch"; then
               echo "Failed to check out branch $latest_branch in $repo_name."
@@ -125,7 +146,7 @@ jobs:
               # Set Git identity and commit changes
               git config user.name "github-actions"
               git config user.email "github-actions@users.noreply.github.com"
-              git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
+              git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
 
               # Push changes to the respective repository
               echo "Pushing changes to $repo_url"
