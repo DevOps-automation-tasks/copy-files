@@ -10,6 +10,7 @@ jobs:
       - name: Checkout automation repository
         uses: actions/checkout@v3
         with:
+          path: automation_repo
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Ensure repos.txt is in the directory
@@ -44,7 +45,7 @@ jobs:
             fi
             echo "Latest branch in $repo_name: $latest_branch"
             
-            # Derive the previous branch name (e.g., rhoai-2.13 from rhoai-2.14)
+            # Derive the previous branch name
             MAJOR=$(echo $latest_branch | cut -d. -f1 | sed 's/rhoai-//')
             MINOR=$(echo $latest_branch | cut -d. -f2)
             PREV_MINOR=$((MINOR-1))
@@ -67,9 +68,7 @@ jobs:
             
             # Check out the latest branch
             git checkout $latest_branch
-            # Ensure the target .tekton directory exists in the latest branch
             mkdir -p .tekton
-            # Copy Tekton files from the temporary directory to the latest branch
             if [ -d "../tekton_copy" ]; then
               cp -r ../tekton_copy/* .tekton/
             else
@@ -80,8 +79,8 @@ jobs:
             fi
             
             # Set Git identity and push changes
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git config user.name "github-actions"
+            git config user.email "4github-actions@users.noreply.github.com"
             git add .tekton
             git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
             git push origin $latest_branch
@@ -97,3 +96,10 @@ jobs:
             cd ..
             rm -rf $repo_name  # Clean up for the next repository
           done < repos.txt
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          directory: ${{ github.workspace }}/path/to/app_repo
+          branch: ${{ github.ref }}
