@@ -94,7 +94,10 @@ jobs:
             fi
 
             # Increment version in filenames, file contents, and handle rhoai branch updates
-            # Increment version in filenames, file contents, and handle rhoai branch updates
+            # Log file content before sed for debugging
+            echo "Contents of $new_file_name before sed:"
+            cat "$new_file_name"
+            
             # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
               if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
@@ -117,22 +120,19 @@ jobs:
                 sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
             
-                # Ensure condition is added after the specific rhoai-x.y branch
-                if grep -q "target_branch[[:space:]]*==[[:space:]]*\"$current_rhoai\"" "$new_file_name"; then
-                  if ! grep -q "&& !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"; then
-                    sed -i "/target_branch[[:space:]]*==[[:space:]]*\"$current_rhoai\"/a \ \ \ \ && !\"bundle\/manifests\/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"
-                    echo "Added condition for $current_rhoai in $new_file_name."
-                  else
-                    echo "Condition already exists for $current_rhoai in $new_file_name."
-                  fi
+                # Search for the pipelinesascode.tekton.dev/on-cel-expression line and append the condition if it doesn't exist
+                if ! grep -q 'pipelinesascode.tekton.dev/on-cel-expression:.*"!\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()"' "$new_file_name"; then
+                  sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/a \ \ \ \ && !\"bundle\/manifests\/rhods-operator.clusterserviceversion.yml\".pathChanged()"' "$new_file_name"
+                  echo "Added condition to pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
                 else
-                  echo "Target branch $current_rhoai not found in $new_file_name."
+                  echo "Condition already exists in $new_file_name"
                 fi
-            
-                echo "Updated pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
               fi
             done
-
+            
+            # Log file content after sed for debugging
+            echo "Contents of $new_file_name after sed:"
+            cat "$new_file_name"
 
 
 
