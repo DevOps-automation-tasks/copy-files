@@ -7,14 +7,18 @@ jobs:
   copy-tekton-files:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout automation repository
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
           path: automation_repo
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
-      - name: Ensure repos.txt is in the directory
-        run: ls -al  # List directory contents to verify repos.txt location
+      - name: Verify repos.txt existence
+        run: |
+          echo "Listing files to verify repos.txt location:"
+          ls -al automation_repo
+          echo "Attempting to read repos.txt"
+          cat automation_repo/repos.txt
 
       - name: Fetch and Install Dependencies
         run: |
@@ -24,6 +28,12 @@ jobs:
       - name: Read and process repos.txt
         id: process_repos
         run: |
+          # Ensure repos.txt is correctly located
+          if [ ! -f automation_repo/repos.txt ]; then
+            echo "Error: repos.txt not found."
+            exit 1
+          fi
+
           while IFS= read -r repo_url; do
             repo_name=$(basename $repo_url .git)
             echo "Cloning repository: $repo_url"
@@ -83,16 +93,8 @@ jobs:
             git config user.email "4github-actions@users.noreply.github.com"
             git add .tekton
             git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} $latest_branch
-            
-            # Optionally, disable bundle nudging
-            if [ -f ".github/workflows/bundle-push.yml" ]; then
-              sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
-              git add .github/workflows/bundle-push.yml
-              git commit -m "Disable bundle nudging for $latest_branch"
-              git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} $latest_branch
-            fi
+            git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} $latest_branch
             
             cd ..
             rm -rf $repo_name  # Clean up for the next repository
-          done < repos.txt
+          done < automation_repo/repos.txt
