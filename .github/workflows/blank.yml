@@ -93,7 +93,7 @@ jobs:
               continue
             fi
 
-            # Increment version in filenames and file contents
+            # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
               if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
                 # Extract the current version numbers
@@ -102,6 +102,8 @@ jobs:
                 new_minor_version=$((minor_version + 1))
                 current_version="v${major_version}-${minor_version}"
                 new_version="v${major_version}-${new_minor_version}"
+                current_rhoai="rhoai-${major_version}.${minor_version}"
+                new_rhoai="rhoai-${major_version}.${new_minor_version}"
 
                 # Rename the file by incrementing the version number
                 new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
@@ -110,7 +112,12 @@ jobs:
 
                 # Replace the version number inside the file
                 sed -i "s/$current_version/$new_version/g" "$new_file_name"
-                echo "Updated version inside $new_file_name from $current_version to $new_version"
+                sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
+                echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
+
+                # Update pipelinesascode.tekton.dev/on-cel-expression
+                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/$/ && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
+                echo "Updated pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
               fi
             done
 
@@ -148,16 +155,19 @@ jobs:
               git config user.email "github-actions@users.noreply.github.com"
               git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
 
-              # Push changes to the respective repository
-              echo "Pushing changes to $repo_url"
-              if ! git push origin "$latest_branch"; then
-                echo "Failed to push changes to $repo_url"
-              fi
+              # Push changes to the remote repository
+              git push origin "$latest_branch"
+              echo "Pushed changes to branch $latest_branch."
             fi
 
-            # Clean up for the next repository
+            # Clean up and move to the next repository
             cd ..
             rm -rf "$repo_name"
-            rm -rf ../tekton_copy_$repo_name
+            rm -rf "tekton_copy_$repo_name"
 
           done < automation_repo/repos.txt
+
+      - name: Cleanup Workflow
+        run: |
+          echo "Cleanup completed."
+
