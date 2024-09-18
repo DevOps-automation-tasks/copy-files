@@ -7,94 +7,85 @@ jobs:
   copy-tekton-files:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout automation repository
-      uses: actions/checkout@v3
+      - name: Checkout automation repository
+        uses: actions/checkout@v3
 
-    - name: Ensure repos.txt is in the directory
-      run: ls -al  # List directory contents to verify repos.txt location
+      - name: Ensure repos.txt is in the directory
+        run: ls -al  # List directory contents to verify repos.txt location
 
-    - name: Fetch and Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git
+      - name: Fetch and Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git
 
-    - name: Read and process repos.txt
-      id: process_repos
-      run: |
-        # Read repos.txt and process each repository
-        while IFS= read -r repo_url; do
-          repo_name=$(basename $repo_url .git)
-          echo "Cloning repository: $repo_url"
-          
-          # Clone the repository
-          git clone $repo_url
-          cd $repo_name
-          
-          # Fetch all branches
-          git fetch --all
-
-          # Get the latest branch matching the pattern 'rhoai-x.y'
-          latest_branch=$(git branch -r | grep -o 'origin/rhoai-[0-9]*\.[0-9]*' | sed 's/origin\///' | sort -V | tail -n 1)
-
-          if [ -z "$latest_branch" ]; then
-            echo "No branches matching 'rhoai-x.y' found in $repo_name."
-            cd ..
-            rm -rf $repo_name
-            continue
-          fi
-
-          echo "Latest branch in $repo_name: $latest_branch"
-
-          # Derive the previous branch name (e.g., rhoai-2.13 from rhoai-2.14)
-          MAJOR=$(echo $latest_branch | cut -d. -f1 | sed 's/rhoai-//')
-          MINOR=$(echo $latest_branch | cut -d. -f2)
-          PREV_MINOR=$((MINOR-1))
-          PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
-
-          # Check out the previous branch
-          git checkout $PREV_BRANCH || { echo "Branch $PREV_BRANCH does not exist"; cd ..; rm -rf $repo_name; continue; }
-
-          # Ensure Tekton files exist in the previous branch
-          if [ -d ".tekton" ]; then
-            # Copy Tekton files to a temporary directory
-            mkdir -p ../tekton_copy
-            cp -r .tekton/* ../tekton_copy/
-          else
-            echo "Tekton directory does not exist in branch $PREV_BRANCH."
-            cd ..
-            rm -rf $repo_name
-            continue
-          fi
-
-          # Check out the latest branch
-          git checkout $latest_branch
-
-          # Ensure the target .tekton directory exists in the latest branch
-          mkdir -p .tekton
-
-          # Copy Tekton files from the temporary directory to the latest branch
-          if [ -d "../tekton_copy" ]; then
-            cp -r ../tekton_copy/* .tekton/
-          else
-            echo "Tekton copy directory does not exist."
-            cd ..
-            rm -rf $repo_name
-            continue
-          fi
-
-          # Commit and push changes to the latest branch
-          git add .tekton
-          git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
-          git push origin $latest_branch
-
-          # Optionally, disable bundle nudging (add the on-cel rule)
-          if [ -f ".github/workflows/bundle-push.yml" ]; then
-            sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
-            git add .github/workflows/bundle-push.yml
-            git commit -m "Disable bundle nudging for $latest_branch"
+      - name: Read and process repos.txt
+        id: process_repos
+        run: |
+          # Read repos.txt and process each repository
+          while IFS= read -r repo_url; do
+            repo_name=$(basename $repo_url .git)
+            echo "Cloning repository: $repo_url"
+            
+            # Clone the repository
+            git clone $repo_url
+            cd $repo_name
+            
+            # Fetch all branches
+            git fetch --all
+            # Get the latest branch matching the pattern 'rhoai-x.y'
+            latest_branch=$(git branch -r | grep -o 'origin/rhoai-[0-9]*\.[0-9]*' | sed 's/origin\///' | sort -V | tail -n 1)
+            if [ -z "$latest_branch" ]; then
+              echo "No branches matching 'rhoai-x.y' found in $repo_name."
+              cd ..
+              rm -rf $repo_name
+              continue
+            fi
+            echo "Latest branch in $repo_name: $latest_branch"
+            # Derive the previous branch name (e.g., rhoai-2.13 from rhoai-2.14)
+            MAJOR=$(echo $latest_branch | cut -d. -f1 | sed 's/rhoai-//')
+            MINOR=$(echo $latest_branch | cut -d. -f2)
+            PREV_MINOR=$((MINOR-1))
+            PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
+            # Check out the previous branch
+            git checkout $PREV_BRANCH || { echo "Branch $PREV_BRANCH does not exist"; cd ..; rm -rf $repo_name; continue; }
+            # Ensure Tekton files exist in the previous branch
+            if [ -d ".tekton" ]; then
+              # Copy Tekton files to a temporary directory
+              mkdir -p ../tekton_copy
+              cp -r .tekton/* ../tekton_copy/
+            else
+              echo "Tekton directory does not exist in branch $PREV_BRANCH."
+              cd ..
+              rm -rf $repo_name
+              continue
+            fi
+            # Check out the latest branch
+            git checkout $latest_branch
+            # Ensure the target .tekton directory exists in the latest branch
+            mkdir -p .tekton
+            # Copy Tekton files from the temporary directory to the latest branch
+            if [ -d "../tekton_copy" ]; then
+              cp -r ../tekton_copy/* .tekton/
+            else
+              echo "Tekton copy directory does not exist."
+              cd ..
+              rm -rf $repo_name
+              continue
+            fi
+            # Set Git identity using built-in GitHub Actions token
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            # Commit and push changes to the latest branch
+            git add .tekton
+            git commit -m "Copy Tekton files from $PREV_BRANCH to $latest_branch"
             git push origin $latest_branch
-          fi
-
-          cd ..
-          rm -rf $repo_name  # Clean up for the next repository
-        done < repos.txt
+            # Optionally, disable bundle nudging (add the on-cel rule)
+            if [ -f ".github/workflows/bundle-push.yml" ]; then
+              sed -i '/bundle.manifests\/rhods-operator.clusterserviceversion.yml/a && !”bundle\/manifests\/rhods-operator.clusterserviceversion.yml”.pathChanged()' .github/workflows/bundle-push.yml
+              git add .github/workflows/bundle-push.yml
+              git commit -m "Disable bundle nudging for $latest_branch"
+              git push origin $latest_branch
+            fi
+            cd ..
+            rm -rf $repo_name  # Clean up for the next repository
+          done < repos.txt
