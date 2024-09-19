@@ -117,8 +117,8 @@ jobs:
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
             
                 # Update pipelinesascode.tekton.dev/on-cel-expression
-                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/ && target_branch[ ]*==[ ]*"rhoai-[0-9]*\.[0-9]*"/ && target_branch == "'"$current_rhoai"'"/' "$new_file_name"
-                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/$/ && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
+                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/target_branch *== *"rhoai-[0-9]*\.[0-9]*"/target_branch == "'"$current_rhoai"'"/' "$new_file_name"
+                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/$/ && ! "bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
                 echo "Updated pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
               fi
             done
