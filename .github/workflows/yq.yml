@@ -1,4 +1,4 @@
-name: Copy Tekton Files for New Release
+name: yq
 
 on:
   workflow_dispatch:  # Allow manual triggering of the workflow
