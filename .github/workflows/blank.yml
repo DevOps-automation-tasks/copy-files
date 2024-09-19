@@ -115,11 +115,12 @@ jobs:
               sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
               echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
           
-              # Ensure the pathChanged() condition is appended
-              sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/\(target_branch == "[^"]*"\)/\1 && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
-              echo "Appended pathChanged() to $new_file_name"
+              # Ensure the pathChanged() condition is added on the next line after target_branch
+              sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/!b;n;s/\(target_branch == "[^"]*"\)/\1\n      && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
+              echo "Appended pathChanged() on the next line after target_branch in $new_file_name"
             fi
           done
+
 
 
            
