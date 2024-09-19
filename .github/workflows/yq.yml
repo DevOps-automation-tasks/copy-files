@@ -24,7 +24,7 @@ jobs:
       - name: Fetch and Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git
+          sudo apt-get install -y git curl
 
           # Install yq
           sudo curl -LJO https://github.com/mikefarah/yq/releases/download/v4.17.2/yq_linux_amd64
@@ -116,8 +116,8 @@ jobs:
                 echo "Renamed file: $file to $new_file_name"
 
                 # Replace the version number inside the file using yq
-                yq eval --inplace ". |= sub(\"$current_version\", \"$new_version\")" "$new_file_name"
-                yq eval --inplace ". |= sub(\"$current_rhoai\", \"$new_rhoai\")" "$new_file_name"
+                yq eval --inplace ". |= with_entries(if .key == \"$current_version\" then .key = \"$new_version\" else . end)" "$new_file_name"
+                yq eval --inplace ". |= with_entries(if .key == \"$current_rhoai\" then .key = \"$new_rhoai\" else . end)" "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
 
                 # Append the pathChanged() condition after '== "rhoai-x.y"' using yq
