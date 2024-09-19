@@ -24,7 +24,7 @@ jobs:
       - name: Fetch and Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git
+          sudo apt-get install -y git yq
 
       - name: Process Repositories
         id: process_repos
@@ -95,33 +95,31 @@ jobs:
 
             # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
-            if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
-              # Extract the current version numbers
-              major_version="${BASH_REMATCH[1]}"
-              minor_version="${BASH_REMATCH[2]}"
-              new_minor_version=$((minor_version + 1))
-              current_version="v${major_version}-${minor_version}"
-              new_version="v${major_version}-${new_minor_version}"
-              current_rhoai="rhoai-${major_version}.${minor_version}"
-              new_rhoai="rhoai-${major_version}.${new_minor_version}"
-          
-              # Rename the file by incrementing the version number
-              new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
-              mv "$file" "$new_file_name"
-              echo "Renamed file: $file to $new_file_name"
-          
-              # Replace the version number inside the file using yq
-              yq eval --inplace ". |= sub(\"$current_version\", \"$new_version\")" "$new_file_name"
-              yq eval --inplace ". |= sub(\"$current_rhoai\", \"$new_rhoai\")" "$new_file_name"
-              echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
-          
-              # Append the pathChanged() condition after '== "rhoai-x.y"' using yq
-              yq eval --inplace '. |= sub("== \"rhoai-[0-9]+\\.[0-9]+\"", "== \"rhoai-[0-9]+\\.[0-9]+\" && !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()")' "$new_file_name"
-              echo "Appended pathChanged() condition to $new_file_name"
-            fi
-          done
+              if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
+                # Extract the current version numbers
+                major_version="${BASH_REMATCH[1]}"
+                minor_version="${BASH_REMATCH[2]}"
+                new_minor_version=$((minor_version + 1))
+                current_version="v${major_version}-${minor_version}"
+                new_version="v${major_version}-${new_minor_version}"
+                current_rhoai="rhoai-${major_version}.${minor_version}"
+                new_rhoai="rhoai-${major_version}.${new_minor_version}"
+                
+                # Rename the file by incrementing the version number
+                new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
+                mv "$file" "$new_file_name"
+                echo "Renamed file: $file to $new_file_name"
 
+                # Replace the version number inside the file using yq
+                yq eval --inplace ". |= sub(\"$current_version\", \"$new_version\")" "$new_file_name"
+                yq eval --inplace ". |= sub(\"$current_rhoai\", \"$new_rhoai\")" "$new_file_name"
+                echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
 
+                # Append the pathChanged() condition after '== "rhoai-x.y"' using yq
+                yq eval --inplace '. |= sub("== \"rhoai-[0-9]+\\.[0-9]+\"", "== \"rhoai-[0-9]+\\.[0-9]+\" && !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()")' "$new_file_name"
+                echo "Appended pathChanged() condition to $new_file_name"
+              fi
+            done
 
             # Check out the latest branch
             if ! git checkout "$latest_branch"; then
@@ -157,7 +155,6 @@ jobs:
               git config user.email "github-actions@users.noreply.github.com"
               git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
 
-              #
               # Push changes to the remote repository
               git push origin "$latest_branch"
               echo "Pushed changes to branch $latest_branch."
