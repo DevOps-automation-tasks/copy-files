@@ -24,7 +24,12 @@ jobs:
       - name: Fetch and Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git yq
+          sudo apt-get install -y git
+
+          # Install yq
+          sudo curl -LJO https://github.com/mikefarah/yq/releases/download/v4.17.2/yq_linux_amd64
+          sudo chmod +x yq_linux_amd64
+          sudo mv yq_linux_amd64 /usr/local/bin/yq
 
       - name: Process Repositories
         id: process_repos
