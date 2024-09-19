@@ -116,12 +116,14 @@ jobs:
                 sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
             
-                # Update pipelinesascode.tekton.dev/on-cel-expression
-                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/\(target_branch == "[^"]*"\)/\1 && ! "bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
+                # Ensure correct formatting and append pathChanged()
+                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/\(target_branch == "[^"]*"\)/\1 && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
+                sed -i ':a;N;$!ba;s/\n\s*==/ ==/' "$new_file_name"
                 echo "Updated pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
               fi
             done
 
+           
 
             # Check out the latest branch
             if ! git checkout "$latest_branch"; then
