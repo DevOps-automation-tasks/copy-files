@@ -98,10 +98,9 @@ jobs:
               continue
             fi
 
-            # Increment version in filenames, file contents, and handle rhoai branch updates
+            # Increment version in filenames and contents
             for file in ../tekton_copy_$repo_name/*; do
               if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
-                # Extract the current version numbers
                 major_version="${BASH_REMATCH[1]}"
                 minor_version="${BASH_REMATCH[2]}"
                 new_minor_version=$((minor_version + 1))
@@ -116,12 +115,12 @@ jobs:
                 echo "Renamed file: $file to $new_file_name"
 
                 # Replace the version number inside the file using yq
-                yq eval --inplace ". |= with_entries(if .value == \"$current_version\" then .value = \"$new_version\" else . end)" "$new_file_name"
-                yq eval --inplace ". |= with_entries(if .value == \"$current_rhoai\" then .value = \"$new_rhoai\" else . end)" "$new_file_name"
+                yq eval '. | map_values(substrenv("$current_version", "$new_version"))' "$new_file_name"
+                yq eval '. | map_values(substrenv("$current_rhoai", "$new_rhoai"))' "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
 
                 # Append the pathChanged() condition after '== "rhoai-x.y"' using yq
-                yq eval --inplace '(. | select(. == "rhoai-[0-9]+.[0-9]+")) |= "rhoai-[0-9]+.[0-9]+ && !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()"' "$new_file_name"
+                yq eval '. | select(. == "rhoai-[0-9]+.[0-9]+") |= "rhoai-[0-9]+.[0-9]+ && !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()"' "$new_file_name"
                 echo "Appended pathChanged() condition to $new_file_name"
               fi
             done
