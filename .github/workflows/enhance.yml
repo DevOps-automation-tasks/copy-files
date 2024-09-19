@@ -1,0 +1,177 @@
+name: enhance
+
+on:
+  workflow_dispatch:  # Allow manual triggering of the workflow
+
+jobs:
+  copy-tekton-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Automation Repository
+        uses: actions/checkout@v3
+        with:
+          path: automation_repo
+          token: ${{ secrets.GH_TOKEN }}
+        # 🟢 Green: Successfully checked out the automation repository.
+
+      - name: Verify repos.txt existence
+        run: |
+          echo "Listing files to verify repos.txt location:"
+          ls -al automation_repo
+          echo "Attempting to read repos.txt"
+          if [ -f automation_repo/repos.txt ]; then
+            cat automation_repo/repos.txt
+          else
+            echo "🔴 Red: Error: repos.txt not found." >&2
+            exit 1
+          fi
+
+      - name: Fetch and Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git
+        # 🟢 Green: Dependencies installed successfully.
+
+      - name: Process Repositories
+        id: process_repos
+        run: |
+          # Ensure repos.txt exists
+          if [ ! -f automation_repo/repos.txt ]; then
+            echo "🔴 Red: Error: repos.txt not found." >&2
+            exit 1
+          fi
+
+          # Read each repository URL from repos.txt
+          while IFS= read -r repo_url; do
+            if [[ -z "$repo_url" || "$repo_url" =~ ^# ]]; then
+              continue
+            fi
+
+            repo_name=$(basename "$repo_url" .git)
+            echo "Processing repository: $repo_url"
+
+            # Clone the repository
+            git clone "$repo_url"
+            cd "$repo_name" || { echo "🔴 Red: Failed to enter directory $repo_name"; continue; }
+
+            # Configure Git to use the GitHub token for authentication
+            git config --global url."https://${{ secrets.GH_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
+            # Fetch all branches
+            git fetch --all
+
+            # Get the latest branch matching the pattern 'rhoai-x.y'
+            latest_branch=$(git branch -r | grep -o 'origin/rhoai-[0-9]*\.[0-9]*' | sed 's/origin\///' | sort -V | tail -n 1)
+            if [ -z "$latest_branch" ]; then
+              echo "🔴 Red: No branches matching 'rhoai-x.y' found in $repo_name."
+              cd ..
+              rm -rf "$repo_name"
+              continue
+            fi
+            echo "🟢 Green: Latest branch in $repo_name: $latest_branch"
+
+            # Derive the previous branch name
+            MAJOR=$(echo "$latest_branch" | cut -d. -f1 | sed 's/rhoai-//')
+            MINOR=$(echo "$latest_branch" | cut -d. -f2)
+            PREV_MINOR=$((MINOR-1))
+            PREV_BRANCH="rhoai-${MAJOR}.${PREV_MINOR}"
+
+            # Check out the previous branch
+            if ! git checkout "$PREV_BRANCH" 2>/dev/null; then
+              echo "🔴 Red: Branch $PREV_BRANCH does not exist in $repo_name."
+              cd ..
+              rm -rf "$repo_name"
+              continue
+            fi
+
+            echo "🟢 Green: Checked out branch $PREV_BRANCH"
+
+            # Ensure Tekton files exist in the previous branch
+            if [ -d ".tekton" ]; then
+              # Copy Tekton files to a temporary directory within the repository folder
+              mkdir -p ../tekton_copy_$repo_name
+              cp -r .tekton/* ../tekton_copy_$repo_name/
+              echo "🟢 Green: Copied Tekton files from $PREV_BRANCH to temporary directory."
+            else
+              echo "🔴 Red: Tekton directory does not exist in branch $PREV_BRANCH."
+              cd ..
+              rm -rf "$repo_name"
+              continue
+            fi
+
+            # Increment version in filenames, file contents, and handle rhoai branch updates
+            for file in ../tekton_copy_$repo_name/*; do
+            if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
+              # Extract the current version numbers
+              major_version="${BASH_REMATCH[1]}"
+              minor_version="${BASH_REMATCH[2]}"
+              new_minor_version=$((minor_version + 1))
+              current_version="v${major_version}-${minor_version}"
+              new_version="v${major_version}-${new_minor_version}"
+              current_rhoai="rhoai-${major_version}.${minor_version}"
+              new_rhoai="rhoai-${major_version}.${new_minor_version}"
+          
+              # Rename the file by incrementing the version number
+              new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
+              mv "$file" "$new_file_name"
+              echo "🟢 Green: Renamed file: $file to $new_file_name"
+          
+              # Replace the version number inside the file
+              sed -i "s/$current_version/$new_version/g" "$new_file_name"
+              sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
+              echo "🟢 Green: Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
+          
+              # Append pathChanged() condition after the line containing '== "rhoai-x.y"'
+              sed -i '/== "rhoai-[0-9]*\.[0-9]*"/a \      && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()' "$new_file_name"
+              echo "🟢 Green: Appended pathChanged() after '== rhoai-x.y' in $new_file_name"
+            fi
+          done
+
+            # Check out the latest branch
+            if ! git checkout "$latest_branch"; then
+              echo "🔴 Red: Failed to check out branch $latest_branch in $repo_name."
+              cd ..
+              rm -rf "$repo_name"
+              continue
+            fi
+
+            echo "🟢 Green: Checked out branch $latest_branch"
+
+            # Ensure Tekton directory exists in the latest branch and copy files
+            mkdir -p .tekton
+            if [ -d "../tekton_copy_$repo_name" ]; then
+              cp -r ../tekton_copy_$repo_name/* .tekton/
+              echo "🟢 Green: Copied Tekton files to .tekton directory in branch $latest_branch."
+            else
+              echo "🔴 Red: Tekton copy directory does not exist."
+              cd ..
+              rm -rf "$repo_name"
+              continue
+            fi
+
+            # Add untracked files explicitly
+            git add .tekton
+            git status
+
+            if git diff --staged --quiet; then
+              echo "🔴 Red: No changes to commit for branch $latest_branch."
+            else
+              # Set Git identity and commit changes
+              git config user.name "github-actions"
+              git config user.email "github-actions@users.noreply.github.com"
+              git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
+              git push origin "$latest_branch"
+              echo "🟢 Green: Pushed changes to branch $latest_branch."
+            fi
+
+            # Clean up and move to the next repository
+            cd ..
+            rm -rf "$repo_name"
+            rm -rf "tekton_copy_$repo_name"
+
+          done < automation_repo/repos.txt
+
+      - name: Cleanup Workflow
+        run: |
+          echo "🟢 Green: Cleanup completed."
