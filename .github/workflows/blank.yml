@@ -94,12 +94,6 @@ jobs:
             fi
 
             # Increment version in filenames, file contents, and handle rhoai branch updates
-            # Log file content before sed for debugging
-            echo "Contents of $new_file_name before sed:"
-            cat "$new_file_name"
-            
-            # Increment version in filenames, file contents, and handle rhoai branch updates
-            # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
               if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
                 # Extract the current version numbers
@@ -110,39 +104,22 @@ jobs:
                 new_version="v${major_version}-${new_minor_version}"
                 current_rhoai="rhoai-${major_version}.${minor_version}"
                 new_rhoai="rhoai-${major_version}.${new_minor_version}"
-            
+
                 # Rename the file by incrementing the version number
                 new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
                 mv "$file" "$new_file_name"
                 echo "Renamed file: $file to $new_file_name"
-            
+
                 # Replace the version number inside the file
                 sed -i "s/$current_version/$new_version/g" "$new_file_name"
                 sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
-            
-                # Ensure condition is added after the specific rhoai-x.y branch
-                if grep -q "target_branch[[:space:]]*==[[:space:]]*\"$current_rhoai\"" "$new_file_name"; then
-                  if ! grep -q "&& !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"; then
-                    sed -i "/target_branch[[:space:]]*==[[:space:]]*\"$current_rhoai\"/a \ \ \ \ && !\"bundle\/manifests\/rhods-operator.clusterserviceversion.yml\".pathChanged()" "$new_file_name"
-                    echo "Added condition for $current_rhoai in $new_file_name."
-                  else
-                    echo "Condition already exists for $current_rhoai in $new_file_name."
-                  fi
-                else
-                  echo "Target branch $current_rhoai not found in $new_file_name."
-                fi
-            
+
+                # Update pipelinesascode.tekton.dev/on-cel-expression
+                sed -i '/pipelinesascode.tekton.dev\/on-cel-expression:/ s/$/ && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()/' "$new_file_name"
                 echo "Updated pipelinesascode.tekton.dev/on-cel-expression in $new_file_name"
               fi
             done
-
-            
-            # Log file content after sed for debugging
-            echo "Contents of $new_file_name after sed:"
-            cat "$new_file_name"
-
-
 
             # Check out the latest branch
             if ! git checkout "$latest_branch"; then
@@ -178,7 +155,8 @@ jobs:
               git config user.email "github-actions@users.noreply.github.com"
               git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
 
-              # Push changes to the remote repository
+              #
+                            # Push changes to the remote repository
               git push origin "$latest_branch"
               echo "Pushed changes to branch $latest_branch."
             fi
