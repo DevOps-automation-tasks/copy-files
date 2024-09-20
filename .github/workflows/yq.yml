@@ -115,12 +115,13 @@ jobs:
                 echo "Renamed file: $file to $new_file_name"
 
                 # Replace the version number inside the file using yq
-                yq eval -i ". | select(.) |= sub(\"$current_version\", \"$new_version\")" "$new_file_name"
-                yq eval -i ". | select(.) |= sub(\"$current_rhoai\", \"$new_rhoai\")" "$new_file_name"
+                yq eval -i '(.spec.conditions[].expression | select(. == "*$current_version*")) |= sub("'$current_version'", "'$new_version'")' "$new_file_name"
+                yq eval -i '(.spec.conditions[].expression | select(. == "*$current_rhoai*")) |= sub("'$current_rhoai'", "'$new_rhoai'")' "$new_file_name"
+
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
 
                 # Append the pathChanged() condition after the 'rhoai-x.y' condition
-                yq eval -i '.spec.conditions[].expression |= select(. == "rhoai-[0-9]+\\.[0-9]+") += " && !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()"' "$new_file_name"
+                yq eval -i '(.spec.conditions[].expression | select(. == "*rhoai-[0-9]*\\.[0-9]*")) |= . + " && !\"bundle/manifests/rhods-operator.clusterserviceversion.yml\".pathChanged()"' "$new_file_name"
                 echo "Appended pathChanged() condition to $new_file_name"
               fi
             done
