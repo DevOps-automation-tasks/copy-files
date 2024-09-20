@@ -4,7 +4,7 @@ https://github.com/rhoai-rhtap/rhods-operator.git
 https://github.com/rhoai-rhtap/ml-metadata.git
 https://github.com/rhoai-rhtap/argo-workflows.git
 https://github.com/rhoai-rhtap/odh-dashboard.git
-https://github.com/rhoai-rhtap/data-science-pipelines-operator.git 
+https://github.com/rhoai-rhtap/data-science-pipelines-operator.git
 https://github.com/rhoai-rhtap/kubeflow.git
 https://github.com/rhoai-rhtap/modelmesh-runtime-adapter.git
 https://github.com/rhoai-rhtap/modelmesh.git
