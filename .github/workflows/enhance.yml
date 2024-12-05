@@ -98,9 +98,6 @@ jobs:
 
             # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
-              # Detect both `v2.xy` and `v2-16` formats
-              # Increment version for v2.x.y to v2.x+1.y
-              for file in ../tekton_copy_$repo_name/*; do
                 # This regex matches files like v2.3.5 or v2.3.10, extracting the major, minor, and patch version
                 if [[ "$file" =~ v([0-9]+)-([0-9]+)-([0-9]+) ]]; then
                   # Extract the current version numbers
