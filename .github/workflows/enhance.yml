@@ -101,14 +101,14 @@ jobs:
 
             # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
-              if [[ "$file" =~ v([0-9]+)-([0-9]+)-([0-9]+) ]]; then
+              if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
                 # Extract the current version numbers
                 major_version="${BASH_REMATCH[1]}"
                 minor_version="${BASH_REMATCH[2]}"
                 patch_version="${BASH_REMATCH[3]}"
                 new_minor_version=$((minor_version + 1))  # Increment only the minor version
-                current_version="v${major_version}-${minor_version}-${patch_version}"
-                new_version="v${major_version}-${new_minor_version}-${patch_version}"
+                current_version="v${major_version}-${minor_version}"
+                new_version="v${major_version}-${new_minor_version}"
                 current_rhoai="rhoai-${major_version}.${minor_version}"
                 new_rhoai="rhoai-${major_version}.${new_minor_version}"
 
