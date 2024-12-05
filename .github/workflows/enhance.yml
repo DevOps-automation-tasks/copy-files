@@ -99,31 +99,43 @@ jobs:
             # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
               # Detect both `v2.xy` and `v2-16` formats
-              if [[ "$file" =~ v([0-9]+)[.-]([0-9]+) ]]; then
-                major_version="${BASH_REMATCH[1]}"
-                minor_version="${BASH_REMATCH[2]}"
-                separator="${BASH_REMATCH[0]: -2:1}"  # Extract `.` or `-` from the match
-                new_minor_version=$((minor_version + 1))
-                current_version="v${major_version}${separator}${minor_version}"
-                new_version="v${major_version}${separator}${new_minor_version}"
-                current_rhoai="rhoai-${major_version}.${minor_version}"
-                new_rhoai="rhoai-${major_version}.${new_minor_version}"
+              # Increment version for v2.x.y to v2.x+1.y
+              for file in ../tekton_copy_$repo_name/*; do
+                # This regex matches files like v2.3.5 or v2.3.10, extracting the major, minor, and patch version
+                if [[ "$file" =~ v([0-9]+)-([0-9]+)-([0-9]+) ]]; then
+                  # Extract the current version numbers
+                  major_version="${BASH_REMATCH[1]}"
+                  minor_version="${BASH_REMATCH[2]}"
+                  patch_version="${BASH_REMATCH[3]}"
+                  
+                  # Increment the minor version by 1 (e.g., v2.3.5 -> v2.4.5)
+                  new_minor_version=$((minor_version + 1))
+                  
+                  # Define the current and new version
+                  current_version="v${major_version}-${minor_version}-${patch_version}"
+                  new_version="v${major_version}-${new_minor_version}-${patch_version}"
+                  
+                  # Rename the file from v2.x.y to v2.x+1.y
+                  new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
+                  mv "$file" "$new_file_name"  # Rename the file
+                  echo "Renamed file: $file to $new_file_name"
+                  
+                  # Replace all occurrences of v2.x.y inside the file content
+                  sed -i "s/$current_version/$new_version/g" "$new_file_name"  # Update version inside the file
+                  echo "Updated version inside $new_file_name from $current_version to $new_version"
+              
+                  # If the version is v2.x.y, update rhoai reference as well
+                  if [[ "$major_version" == "2" ]]; then
+                    new_rhoai="rhoai-${major_version}.${new_minor_version}"
+                    current_rhoai="rhoai-${major_version}.${minor_version}"
+                    
+                    # Update rhoai references inside the file content
+                    sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
+                    echo "Updated rhoai reference from $current_rhoai to $new_rhoai in $new_file_name"
+                  fi
+                fi
+              done
 
-                # Rename the file by incrementing the version number
-                new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
-                mv "$file" "$new_file_name"
-                echo "Renamed file: $file to $new_file_name"
-
-                # Replace the version number inside the file
-                sed -i "s/$current_version/$new_version/g" "$new_file_name"
-                sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
-                echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
-
-                # Append pathChanged() condition after the line containing '== "rhoai-x.y"'
-                sed -i '/== "rhoai-[0-9]*\.[0-9]*"/a \      && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()' "$new_file_name"
-                echo "Appended pathChanged() after '== rhoai-x.y' in $new_file_name"
-              fi
-            done
 
             # Check out the latest branch
             if ! git checkout "$latest_branch"; then
