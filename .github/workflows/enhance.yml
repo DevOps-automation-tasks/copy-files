@@ -42,7 +42,6 @@ jobs:
             if [[ -z "$repo_url" || "$repo_url" =~ ^# ]]; then
               continue
             fi
-
             repo_name=$(basename "$repo_url" .git)
             echo "Processing repository: $repo_url"
 
@@ -51,7 +50,7 @@ jobs:
               echo -e "\033[31mFailed to clone $repo_url\033[0m"
               continue
             fi
-            
+
             cd "$repo_name" || { echo -e "\033[31mFailed to enter directory $repo_name\033[0m"; continue; }
 
             # Configure Git to use the GitHub token for authentication
@@ -83,12 +82,10 @@ jobs:
               rm -rf "$repo_name"
               continue
             fi
-
             echo "Checked out branch $PREV_BRANCH"
 
             # Ensure Tekton files exist in the previous branch
             if [ -d ".tekton" ]; then
-              # Copy Tekton files to a temporary directory within the repository folder
               mkdir -p ../tekton_copy_$repo_name
               cp -r .tekton/* ../tekton_copy_$repo_name/
               echo "Copied Tekton files from $PREV_BRANCH to temporary directory."
@@ -101,13 +98,14 @@ jobs:
 
             # Increment version in filenames, file contents, and handle rhoai branch updates
             for file in ../tekton_copy_$repo_name/*; do
-              if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
-                # Extract the current version numbers
+              # Detect both `v2.xy` and `v2-16` formats
+              if [[ "$file" =~ v([0-9]+)[.-]([0-9]+) ]]; then
                 major_version="${BASH_REMATCH[1]}"
                 minor_version="${BASH_REMATCH[2]}"
+                separator="${BASH_REMATCH[0]: -2:1}"  # Extract `.` or `-` from the match
                 new_minor_version=$((minor_version + 1))
-                current_version="v${major_version}-${minor_version}"
-                new_version="v${major_version}-${new_minor_version}"
+                current_version="v${major_version}${separator}${minor_version}"
+                new_version="v${major_version}${separator}${new_minor_version}"
                 current_rhoai="rhoai-${major_version}.${minor_version}"
                 new_rhoai="rhoai-${major_version}.${new_minor_version}"
 
@@ -134,7 +132,6 @@ jobs:
               rm -rf "$repo_name"
               continue
             fi
-
             echo "Checked out branch $latest_branch"
 
             # Ensure Tekton directory exists in the latest branch and copy files
@@ -152,16 +149,12 @@ jobs:
             # Add untracked files explicitly
             git add .tekton
             git status
-
             if git diff --staged --quiet; then
               echo -e "\033[33mNo changes to commit for branch $latest_branch.\033[0m"
-            else
-              # Set Git identity and commit changes
+            else:
               git config user.name "github-actions"
               git config user.email "github-actions@users.noreply.github.com"
               git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
-
-              # Push changes to the remote repository
               git push origin "$latest_branch"
               echo -e "\033[32mPushed changes to branch $latest_branch in $repo_name.\033[0m"
             fi
@@ -170,9 +163,7 @@ jobs:
             cd ..
             rm -rf "$repo_name"
             rm -rf "tekton_copy_$repo_name"
-
           done < automation_repo/repos.txt
-
       - name: Cleanup Workflow
         run: |
           echo "Cleanup completed."
