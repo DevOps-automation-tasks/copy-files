@@ -99,29 +99,50 @@ jobs:
               continue
             fi
 
-            # Increment version in filenames, file contents, and handle rhoai branch updates
+            # Increment version in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Search for `version=` and extract the version
-              if grep -q 'version=v[0-9]\+\.[0-9]\+\.[0-9]\+' "$file"; then
-                current_version=$(grep -o 'version=v[0-9]\+\.[0-9]\+\.[0-9]\+' "$file" | cut -d= -f2)
-                
-                # Extract major, minor, and patch versions
-                major_version=$(echo "$current_version" | cut -d. -f1 | sed 's/v//')
+              # Check if the file contains the version=vX.Y format
+              if grep -q "version=v[0-9]*\.[0-9]*" "$file"; then
+                # Extract the current version
+                current_version=$(grep -o "version=v[0-9]*\.[0-9]*" "$file" | sed 's/version=v//')
+                major_version=$(echo "$current_version" | cut -d. -f1)
                 minor_version=$(echo "$current_version" | cut -d. -f2)
-                patch_version=$(echo "$current_version" | cut -d. -f3)
-                
+            
                 # Increment the minor version
                 new_minor_version=$((minor_version + 1))
-                new_version="v${major_version}.${new_minor_version}.0"
-                
-                echo "Updating version in $file: $current_version -> $new_version"
-                
-                # Replace the version in the file
-                sed -i "s/version=$current_version/version=$new_version/" "$file"
-              else
-                echo "No version found in $file to update."
+                new_version="v${major_version}.${new_minor_version}"
+            
+                # Update the version in the file
+                sed -i "s/version=v${major_version}.${minor_version}/version=${new_version}/g" "$file"
+                echo "Updated version in $file from v${major_version}.${minor_version} to ${new_version}"
+              fi
+            
+              # Update other references to versions (if any)
+              if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
+                major_version="${BASH_REMATCH[1]}"
+                minor_version="${BASH_REMATCH[2]}"
+                new_minor_version=$((minor_version + 1))
+                current_version="v${major_version}-${minor_version}"
+                new_version="v${major_version}-${new_minor_version}"
+                current_rhoai="rhoai-${major_version}.${minor_version}"
+                new_rhoai="rhoai-${major_version}.${new_minor_version}"
+            
+                # Rename the file by incrementing the version number
+                new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
+                mv "$file" "$new_file_name"
+                echo "Renamed file: $file to $new_file_name"
+            
+                # Replace the version number inside the file
+                sed -i "s/$current_version/$new_version/g" "$new_file_name"
+                sed -i "s/$current_rhoai/$new_rhoai/g" "$new_file_name"
+                echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from $current_rhoai to $new_rhoai"
+            
+                # Append pathChanged() condition after the line containing '== "rhoai-x.y"'
+                sed -i '/== "rhoai-[0-9]*\.[0-9]*"/a \      && !"bundle\/manifests\/rhods-operator.clusterserviceversion.yml".pathChanged()' "$new_file_name"
+                echo "Appended pathChanged() after '== rhoai-x.y' in $new_file_name"
               fi
             done
+
 
             # Check out the latest branch
             if ! git checkout "$latest_branch"; then
@@ -151,14 +172,18 @@ jobs:
 
             if git diff --staged --quiet; then
               echo -e "\033[33mNo changes to commit for branch $latest_branch.\033[0m"
-            else:
+            else
+              # Set Git identity and commit changes
               git config user.name "github-actions"
               git config user.email "github-actions@users.noreply.github.com"
               git commit -m "Copy Tekton files and increment version from $PREV_BRANCH to $latest_branch"
+
+              # Push changes to the remote repository
               git push origin "$latest_branch"
               echo -e "\033[32mPushed changes to branch $latest_branch in $repo_name.\033[0m"
             fi
 
+            # Clean up and move to the next repository
             cd ..
             rm -rf "$repo_name"
             rm -rf "tekton_copy_$repo_name"
@@ -166,4 +191,5 @@ jobs:
           done < automation_repo/repos.txt
 
       - name: Cleanup Workflow
-        run: echo "Cleanup completed."
+        run: |
+          echo "Cleanup completed."
