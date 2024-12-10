@@ -1,2 +1,2 @@
-https://github.com/rhoai-rhtap/codeflare-operator.git
-https://github.com/rhoai-rhtap/training-operator.git
+rhoai-rhtap/codeflare-operator
+rhoai-rhtap/training-operator
