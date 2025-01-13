@@ -45,7 +45,7 @@ jobs:
           if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)\.([0-9]+) ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
-            version="v${major}.${minor}.0"  # Correct version format (e.g., v2.15.0)
+            version="v${major}-${minor}-0"  # Correct version format (e.g., v2-15-0)
           else
             echo "Error: Invalid target branch format. Expected 'rhoai-x.y'."
             exit 1
@@ -93,15 +93,15 @@ jobs:
 
             # Update version and references in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Replace version references (e.g., v2.13 or v2-13) to match the target version (e.g., v2.15.0)
-              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/$version/g" "$file"
+              # Replace version references (e.g., v2.13 or v2-13) to match the target version (e.g., v2-15-0)
+              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/v${major}-${minor}/g" "$file"
 
-              # Replace version references like rhoai-x.y with rhoai-2.15
-              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}.${minor}/g" "$file"
+              # Replace version references like rhoai-x.y with rhoai-2-15
+              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}-${minor}/g" "$file"
 
               # Update file names (if needed)
               file_name=$(basename "$file")
-              new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}.${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
+              new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
 
               # Only rename the file if the version is different
               if [[ "$file_name" != "$new_file_name" ]]; then
