@@ -16,13 +16,22 @@ jobs:
 
     steps:
       # Checkout the repository
-      - name: Checkout repository
+      - name: Checkout Automation Repository
         uses: actions/checkout@v3
+        with:
+          path: automation_repo
+          token: ${{ secrets.PARAMETER_TOKEN }}
 
-      # Fetch all branches
-      - name: Fetch all branches
+      - name: Verify repos.txt existence
         run: |
-          git fetch --all
+          echo "Verifying repos.txt location:"
+          ls -al automation_repo
+          cat automation_repo/repos.txt || { echo "Error: repos.txt not found"; exit 1; }
+
+      - name: Fetch and Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git
           
       # Checkout source branch and copy Tekton files
       - name: Checkout source branch and copy Tekton files
