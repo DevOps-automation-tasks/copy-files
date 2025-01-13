@@ -41,13 +41,13 @@ jobs:
           SOURCE_BRANCH=${{ github.event.inputs.source_branch }}
           TARGET_BRANCH=${{ github.event.inputs.target_branch }}
 
-          # Extract version from target branch (e.g., rhoai-1.2 -> 2.15)
-          if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)\.([0-9]+) ]]; then
+          # Extract version from target branch (e.g., rhoai-2.13 -> rhoai-2.15)
+          if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)-([0-9]+) ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
-            version="v${major}.${minor}"  # Use v2.15 format for version
+            version="v${major}.${minor}"  # Format the version as v2.15
           else
-            echo "Error: Invalid target branch format. Expected 'rhoai-x.y'."
+            echo "Error: Invalid target branch format. Expected 'rhoai-x-y'."
             exit 1
           fi
 
@@ -93,21 +93,9 @@ jobs:
 
             # Update version and references in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Replace version references (e.g., v2.13 or v2-13) to match the target version (e.g., v2.15)
-              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/v${major}.${minor}/g" "$file"  # No change in separator
-
-              # Replace version references like rhoai-x.y with rhoai-2.15 (keep hyphen as separator)
-              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}-${minor}/g" "$file"
-
-              # Update file names (if needed)
-              file_name=$(basename "$file")
-              new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
-
-              # Only rename the file if the version is different
-              if [[ "$file_name" != "$new_file_name" ]]; then
-                mv "$file" "../tekton_copy_$repo_name/$new_file_name"
-                echo "Renamed file from $file_name to $new_file_name"
-              fi
+              # Replace version references (e.g., rhoai-2.13 or rhoai-v2-13) with the correct version
+              sed -i "s/\brhoai-[0-9]\+-[0-9]\+\b/rhoai-${major}.${minor}/g" "$file"  # Replace rhoai-2-13 to rhoai-2.15
+              sed -i "s/\brhoai-v[0-9]\+-[0-9]\+\b/rhoai-v${major}.${minor}/g" "$file"  # Replace rhoai-v2-13 to rhoai-v2.15
             done
 
             # Check out the target branch
