@@ -41,11 +41,11 @@ jobs:
           SOURCE_BRANCH=${{ github.event.inputs.source_branch }}
           TARGET_BRANCH=${{ github.event.inputs.target_branch }}
 
-          # Extract version from target branch (e.g., rhoai-2.15 -> rhoai-2.15)
+          # Extract version from target branch (e.g., rhoai-2.15 -> v2.15)
           if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)\.([0-9]+) ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
-            version="v${major}.${minor}"  # Format the version as v2.15
+            version="v${major}.${minor}"
           else
             echo "Error: Invalid target branch format. Expected 'rhoai-x.y'."
             exit 1
@@ -93,9 +93,8 @@ jobs:
 
             # Update version and references in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Replace version references (e.g., rhoai-2.13 or rhoai-v2.13) with the correct version
-              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}.${minor}/g" "$file"  # Replace rhoai-2.13 to rhoai-2.15
-              sed -i "s/\brhoai-v[0-9]\+\.[0-9]\+\b/rhoai-v${major}.${minor}/g" "$file"  # Replace rhoai-v2.13 to rhoai-v2.15
+              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}.${minor}/g" "$file"  # Update rhoai-x.y format
+              sed -i "s/\brhoai-v[0-9]\+-[0-9]\+\b/rhoai-v${major}-${minor}/g" "$file"  # Update rhoai-vx-y format
             done
 
             # Check out the target branch
