@@ -38,20 +38,20 @@ jobs:
         run: |
           set -e  # Exit immediately if a command exits with a non-zero status
 
-          SOURCE_BRANCH="${{ github.event.inputs.source_branch }}"
-          TARGET_BRANCH="${{ github.event.inputs.target_branch }}"
+          SOURCE_BRANCH=${{ github.event.inputs.source_branch }}
+          TARGET_BRANCH=${{ github.event.inputs.target_branch }}
 
-          # Extract version from target branch (e.g., rhoai-2.15 -> 2.15)
+          # Extract version from target branch (e.g., rhoai-1.2 -> 2.15)
           if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)\.([0-9]+) ]]; then
-            MAJOR="${BASH_REMATCH[1]}"
-            MINOR="${BASH_REMATCH[2]}"
-            VERSION="v${MAJOR}.${MINOR}"  # Format the version as v2.15
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            version="v${major}.${minor}.0"  # Correct version format (e.g., v2.15.0)
           else
             echo "Error: Invalid target branch format. Expected 'rhoai-x.y'."
             exit 1
           fi
 
-          echo "Extracted version: $VERSION for branch $TARGET_BRANCH"
+          echo "Extracted version: $version for branch $TARGET_BRANCH"
 
           # Read each repository URL from repos.txt
           while IFS= read -r repo_url; do
@@ -59,21 +59,21 @@ jobs:
               continue
             fi
 
-            REPO_NAME=$(basename "$repo_url" .git)
+            repo_name=$(basename "$repo_url" .git)
             echo "Processing repository: $repo_url"
 
             # Clone the repository
             git clone "$repo_url"
-            cd "$REPO_NAME" || { echo "Failed to enter directory $REPO_NAME"; exit 1; }
+            cd "$repo_name" || { echo "Failed to enter directory $repo_name"; exit 1; }
 
             # Configure Git for authentication
             git config --global url."https://${{ secrets.PARAMETER_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
             # Check out the source branch
             if ! git checkout "$SOURCE_BRANCH"; then
-              echo "Error: Source branch $SOURCE_BRANCH does not exist in $REPO_NAME."
+              echo "Error: Source branch $SOURCE_BRANCH does not exist in $repo_name."
               cd ..
-              rm -rf "$REPO_NAME"
+              rm -rf "$repo_name"
               continue
             fi
 
@@ -83,26 +83,31 @@ jobs:
             if [ ! -d ".tekton" ]; then
               echo "Error: Tekton directory does not exist in $SOURCE_BRANCH."
               cd ..
-              rm -rf "$REPO_NAME"
+              rm -rf "$repo_name"
               continue
             fi
 
             # Copy Tekton files to a temporary location
-            mkdir -p ../tekton_copy_$REPO_NAME
-            cp -r .tekton/* ../tekton_copy_$REPO_NAME/
+            mkdir -p ../tekton_copy_$repo_name
+            cp -r .tekton/* ../tekton_copy_$repo_name/
 
             # Update version and references in Tekton files
-            for file in ../tekton_copy_$REPO_NAME/*; do
-              echo "Updating references in file: $file"
+            for file in ../tekton_copy_$repo_name/*; do
+              # Replace version references (e.g., v2.13 or v2-13) to match the target version (e.g., v2.15.0)
+              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/$version/g" "$file"
 
-              # Replace rhoai-x.y with the correct version
-              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${MAJOR}.${MINOR}/g" "$file"
+              # Replace version references like rhoai-x.y with rhoai-2.15
+              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}-${minor}/g" "$file"
 
-              # Replace rhoai-vx.y with the correct version
-              sed -i "s/\brhoai-v[0-9]\+\.[0-9]\+\b/rhoai-v${MAJOR}.${MINOR}/g" "$file"
+              # Update file names (if needed)
+              file_name=$(basename "$file")
+              new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
 
-              # Replace v2-x.y with the correct version (e.g., `v2-13` -> `v2-15`)
-              sed -i "s/\bv[0-9]-[0-9]\+\.[0-9]\+\b/v${MAJOR}-${MINOR}/g" "$file"
+              # Only rename the file if the version is different
+              if [[ "$file_name" != "$new_file_name" ]]; then
+                mv "$file" "../tekton_copy_$repo_name/$new_file_name"
+                echo "Renamed file from $file_name to $new_file_name"
+              fi
             done
 
             # Check out the target branch
@@ -115,7 +120,7 @@ jobs:
 
             # Copy updated Tekton files to the target branch
             mkdir -p .tekton
-            cp -r ../tekton_copy_$REPO_NAME/* .tekton/
+            cp -r ../tekton_copy_$repo_name/* .tekton/
 
             # Add and commit changes
             git add .tekton
@@ -127,12 +132,12 @@ jobs:
             else
               git commit -m "Sync Tekton files from $SOURCE_BRANCH to $TARGET_BRANCH with updated versioning"
               git push origin "$TARGET_BRANCH"
-              echo "Pushed changes to branch $TARGET_BRANCH in $REPO_NAME."
+              echo "Pushed changes to branch $TARGET_BRANCH in $repo_name."
             fi
 
             # Clean up
             cd ..
-            rm -rf "$REPO_NAME" "tekton_copy_$REPO_NAME"
+            rm -rf "$repo_name" "tekton_copy_$repo_name"
           done < automation_repo/repos.txt
 
       - name: Cleanup Workflow
