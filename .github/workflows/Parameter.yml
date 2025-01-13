@@ -93,11 +93,13 @@ jobs:
 
             # Update version and references in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Generalize version replacements:
-              # Replace all version patterns like v2.13, v2-13, rhoai-x.y, etc.
-              sed -i -E "s/(v[0-9]+-[0-9]+|v[0-9]+\.[0-9]+|rhoai-[0-9]+\.[0-9]+)/$version/g" "$file"
-              
-              # Update the filenames for versioned files
+              # Replace version references (e.g., v2.13 or v2-13) to match the target version (e.g., v2.15.0)
+              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/$version/g" "$file"
+
+              # Replace version references like rhoai-x.y with rhoai-2.15
+              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}-${minor}/g" "$file"
+
+              # Update file names (if needed)
               file_name=$(basename "$file")
               new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
 
