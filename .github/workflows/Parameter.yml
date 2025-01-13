@@ -19,23 +19,23 @@ jobs:
       - name: Checkout Automation Repository
         uses: actions/checkout@v3
         with:
-          path: automation_repo
           token: ${{ secrets.PARAMETER_TOKEN }}
 
       - name: Verify repos.txt existence
         run: |
           echo "Verifying repos.txt location:"
-          ls -al automation_repo
-          cat automation_repo/repos.txt || { echo "Error: repos.txt not found"; exit 1; }
+          ls -al
+          cat repos.txt || { echo "Error: repos.txt not found"; exit 1; }
 
       - name: Fetch and Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git
-          
+
       # Checkout source branch and copy Tekton files
       - name: Checkout source branch and copy Tekton files
         run: |
+          git fetch origin ${{ github.event.inputs.source_branch }}
           git checkout ${{ github.event.inputs.source_branch }}
           
           if [ -d ".tekton" ]; then
@@ -50,29 +50,26 @@ jobs:
       # Checkout target branch
       - name: Checkout target branch
         run: |
+          git fetch origin ${{ github.event.inputs.target_branch }}
           git checkout ${{ github.event.inputs.target_branch }}
           git pull origin ${{ github.event.inputs.target_branch }}
 
-      # Copy Tekton files to target branch, rename, and update version
+      # Copy Tekton files to target branch and update version numbers
       - name: Copy Tekton files to target branch and update version numbers
         run: |
           if [ -d "../tekton_copy" ]; then
             echo "Copying Tekton files into ${{ github.event.inputs.target_branch }} branch."
             cp -r ../tekton_copy/* .tekton/
-
             # Determine the current version in the target branch (to ensure consistency)
             target_version=$(grep -oP 'version=v\K[0-9]+\.[0-9]+\.[0-9]+' .tekton/* | head -n 1)
-
             # Ensure version was found, else exit
             if [ -z "$target_version" ]; then
               echo "No version found in target branch files, exiting."
               exit 1
             fi
-
             # Extract major, minor, and patch versions from the target branch
             IFS='.' read -r major_version minor_version patch_version <<< "$target_version"
             echo "Target version detected: v$major_version.$minor_version.$patch_version"
-
             # Loop through each file and update version number and rename
             for file in .tekton/*; do
               if [[ "$file" =~ v([0-9]+)-([0-9]+) ]]; then
@@ -81,27 +78,22 @@ jobs:
                 current_minor="${BASH_REMATCH[2]}"
                 current_patch="0"  # Default patch version if not specified in filename
                 current_version="v${current_major}-${current_minor}"
-
                 # Update the version number in the filename
                 new_version="v${major_version}-${minor_version}"
                 new_rhoai="rhoai-${major_version}.${minor_version}"
-
                 # Rename the file based on the version change
                 new_file_name=$(echo "$file" | sed "s/$current_version/$new_version/")
                 mv "$file" "$new_file_name"
                 echo "Renamed file: $file to $new_file_name"
-
                 # Update the version inside the file
                 sed -i "s/$current_version/$new_version/g" "$new_file_name"
                 sed -i "s/rhoai-${current_major}.${current_minor}/$new_rhoai/g" "$new_file_name"
                 echo "Updated version inside $new_file_name from $current_version to $new_version and rhoai reference from rhoai-${current_major}.${current_minor} to $new_rhoai"
               fi
             done
-
             # Stage changes and commit
             git add .tekton
             git status
-
             if git diff --staged --quiet; then
               echo -e "\033[33mNo changes to commit for branch ${{ github.event.inputs.target_branch }}.\033[0m"
             else
@@ -109,7 +101,6 @@ jobs:
               git config user.name "github-actions"
               git config user.email "github-actions@users.noreply.github.com"
               git commit -m "Sync Tekton files from ${{ github.event.inputs.source_branch }} branch and update version numbers"
-
               # Push the changes to the target branch
               git push origin ${{ github.event.inputs.target_branch }}
               echo -e "\033[32mPushed changes to branch ${{ github.event.inputs.target_branch }}.\033[0m"
