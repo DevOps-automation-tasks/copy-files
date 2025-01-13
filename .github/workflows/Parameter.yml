@@ -45,7 +45,7 @@ jobs:
           if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)\.([0-9]+) ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
-            version="v${major}-${minor}"  # Use "v" prefix for the version in filenames
+            version="${major}.${minor}.0"  # Correct version format (e.g., v2.15.0)
           else
             echo "Error: Invalid target branch format. Expected 'rhoai-x.y'."
             exit 1
@@ -100,7 +100,7 @@ jobs:
 
                 # Also, update the version in the filename (if needed)
                 file_name=$(basename "$file")
-                new_file_name=$(echo "$file_name" | sed "s/v[0-9]*-[0-9]*/$version/")
+                new_file_name=$(echo "$file_name" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
 
                 # Only rename the file if the version is different
                 if [[ "$file_name" != "$new_file_name" ]]; then
@@ -108,6 +108,11 @@ jobs:
                   echo "Renamed file from $file_name to $new_file_name"
                 fi
               fi
+
+              # Update all references of old version patterns (e.g., 2.13 and 2-13)
+              sed -i "s/2-13/${major}-${minor}/g" "$file"
+              sed -i "s/2.13/${major}.${minor}.0/g" "$file"
+              echo "Updated references of 2.13 to ${major}.${minor}.0 in $file"
             done
 
             # Check out the target branch
