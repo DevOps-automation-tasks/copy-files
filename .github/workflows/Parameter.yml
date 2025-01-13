@@ -93,13 +93,17 @@ jobs:
 
             # Update version and references in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Replace all references to vx.y and vx-y with the target branch version
-              sed -i "s/v[0-9]*\.[0-9]*/$version/g" "$file"  # Updates v2.13 to v2.15
-              sed -i "s/[0-9]*-[0-9]*/${major}-${minor}/g" "$file"  # Updates 2-13 to 2-15
+              # Replace all references to vx.y with the target version (e.g., v2.13 to v2.15)
+              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/$version/g" "$file"
 
-              # Replace references in any YAML files (e.g., appstudio labels)
-              sed -i "s/rhoai-[0-9]*\.[0-9]*/rhoai-${major}-${minor}/g" "$file"
-              sed -i "s/odh-codeflare-operator-v[0-9]*-[0-9]*/odh-codeflare-operator-v${major}-${minor}/g" "$file"
+              # Replace all references to x-y with the target version (e.g., 2-13 to 2-15)
+              sed -i "s/\b[0-9]\+-[0-9]\+\b/${major}-${minor}/g" "$file"
+
+              # Replace rhoai-x.y references (e.g., rhoai-1.2 to rhoai-2-15)
+              sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}-${minor}/g" "$file"
+
+              # Replace references to odh-codeflare-operator versions (e.g., odh-codeflare-operator-v1-2 to odh-codeflare-operator-v2-15)
+              sed -i "s/\bodh-codeflare-operator-v[0-9]\+-[0-9]\+\b/odh-codeflare-operator-v${major}-${minor}/g" "$file"
             done
 
             # Rename the corresponding files with the correct version
