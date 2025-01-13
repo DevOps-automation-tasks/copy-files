@@ -99,12 +99,12 @@ jobs:
               # Replace version references like rhoai-x.y with rhoai-2.15
               sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}.${minor}/g" "$file"
 
-              # Replace vx-y references with the target version (e.g., v2.15)
-              sed -i "s/\bv[0-9]\+-[0-9]\+\b/v${major}.${minor}/g" "$file"
+              # Replace vx-y references with the target version (e.g., v2-13 -> v2-15)
+              sed -i "s/\bv[0-9]\+-[0-9]\+\b/v${major}-${minor}/g" "$file"
 
               # Update file names (if needed)
               file_name=$(basename "$file")
-              new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}.${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
+              new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
 
               # Only rename the file if the version is different
               if [[ "$file_name" != "$new_file_name" ]]; then
