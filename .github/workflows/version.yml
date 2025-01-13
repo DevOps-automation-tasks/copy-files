@@ -1,4 +1,4 @@
-name: version
+name: Tekton Files Sync for Releases
 
 on:
   workflow_dispatch:
@@ -12,9 +12,9 @@ on:
         required: true
         default: 'rhoai-x.y'
       version:
-        description: 'Version to update in Tekton files (e.g., v2.15.0.0)'
+        description: 'Version to update in Tekton files (e.g., v2.15.0)'
         required: true
-        default: 'v2.15.0.0'
+        default: 'v2.15.0'
 
 jobs:
   copy-tekton-files:
@@ -46,12 +46,13 @@ jobs:
           TARGET_BRANCH=${{ github.event.inputs.target_branch }}
           VERSION=${{ github.event.inputs.version }}  # Version input from workflow trigger
 
-          # Extract major and minor version from input (e.g., v2.15.0.0 -> 2 15)
-          if [[ "$VERSION" =~ v([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+          # Extract major, minor, and patch versions from input (e.g., v2.15.0 -> 2 15 0)
+          if [[ "$VERSION" =~ v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
+            patch="${BASH_REMATCH[3]}"
           else
-            echo "Error: Invalid version format. Expected 'vX.Y.Z.W'."
+            echo "Error: Invalid version format. Expected 'vX.Y.Z'."
             exit 1
           fi
 
@@ -97,8 +98,8 @@ jobs:
 
             # Update version and references in Tekton files
             for file in ../tekton_copy_$repo_name/*; do
-              # Replace version references (e.g., v2.13 or v2-13) to match the input version (e.g., v2.15.0.0)
-              sed -i "s/\bv[0-9]\+\.[0-9]\+\b/$VERSION/g" "$file"
+              # Replace version references (e.g., v2.13 or v2-13) to match the input version (e.g., v2.15.0)
+              sed -i "s/\bv[0-9]\+\.[0-9]\+\.[0-9]\+\b/$VERSION/g" "$file"
 
               # Replace version references like rhoai-x.y with rhoai-2.15
               sed -i "s/\brhoai-[0-9]\+\.[0-9]\+\b/rhoai-${major}.${minor}/g" "$file"
