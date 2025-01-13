@@ -15,5 +15,7 @@ jobs:
           app_id: ${{ secrets.TDEPS_APP }}
           private_key: ${{ secrets.TDEPS_APP_KEY }}
           
-      - name: Print generated token
-        run: echo "Generated token: ${{ steps.app-token.outputs.token }}"
+      - name: Use the generated token
+        run: |
+          echo "Using the generated token"
+          curl -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" https://api.github.com/user
