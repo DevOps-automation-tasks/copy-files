@@ -41,11 +41,11 @@ jobs:
           SOURCE_BRANCH=${{ github.event.inputs.source_branch }}
           TARGET_BRANCH=${{ github.event.inputs.target_branch }}
 
-          # Extract version from target branch (e.g., rhoai-1.2 -> v1.2.0)
+          # Extract version from target branch (e.g., rhoai-1.2 -> 2.15)
           if [[ "$TARGET_BRANCH" =~ rhoai-([0-9]+)\.([0-9]+) ]]; then
             major="${BASH_REMATCH[1]}"
             minor="${BASH_REMATCH[2]}"
-            version="v${major}.${minor}.0"
+            version="v${major}-${minor}"  # Use "v" prefix for the version in filenames
           else
             echo "Error: Invalid target branch format. Expected 'rhoai-x.y'."
             exit 1
@@ -100,9 +100,13 @@ jobs:
 
                 # Also, update the version in the filename (if needed)
                 file_name=$(basename "$file")
-                new_file_name=$(echo "$file_name" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$version/")
-                mv "$file" "../tekton_copy_$repo_name/$new_file_name"
-                echo "Renamed file from $file_name to $new_file_name"
+                new_file_name=$(echo "$file_name" | sed "s/v[0-9]*-[0-9]*/$version/")
+
+                # Only rename the file if the version is different
+                if [[ "$file_name" != "$new_file_name" ]]; then
+                  mv "$file" "../tekton_copy_$repo_name/$new_file_name"
+                  echo "Renamed file from $file_name to $new_file_name"
+                fi
               fi
             done
 
