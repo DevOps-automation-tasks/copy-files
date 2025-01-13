@@ -1,0 +1,19 @@
+name: test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-app-token:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: getsentry/action-github-app-token@v2
+        with:
+          app_id: ${{ secrets.TDEPS_APP }}
+          private_key: ${{ secrets.TDEPS_APP_KEY }}
+          
+      - name: Print generated token
+        run: echo "Generated token: ${{ steps.app-token.outputs.token }}"
