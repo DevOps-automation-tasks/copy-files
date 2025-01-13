@@ -1,4 +1,4 @@
-name: Tekton Files Sync for Releases
+name: version
 
 on:
   workflow_dispatch:
