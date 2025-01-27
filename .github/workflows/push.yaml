@@ -102,14 +102,18 @@ jobs:
             # Find and copy only "push" files (e.g., files containing "push" in their name)
             for file in .tekton/*push*.yaml; do
               if [ -f "$file" ]; then
-                # Rename the file based on a pattern
-                # Example: rename push.yaml to push-<branch>.yaml
-                filename=$(basename "$file")
-                new_filename="${filename%.yaml}-$SOURCE_BRANCH.yaml"
-                cp "$file" "../tekton_copy_$repo_name/$new_filename"
+                file_name=$(basename "$file")
+                new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$VERSION/")
+                if [[ "$file_name" != "$new_file_name" ]]; then
+                  mv "$file" "../tekton_copy_$repo_name/$new_file_name"
+                  echo "Renamed file from $file_name to $new_file_name"
+                else
+                  cp "$file" "../tekton_copy_$repo_name/$file_name"
+                  echo "No renaming needed for $file_name"
+                fi
               fi
             done
-
+            
             # Check out the target branch
             if ! git checkout "$TARGET_BRANCH"; then
               echo "Error: Target branch $TARGET_BRANCH does not exist. Creating it."
