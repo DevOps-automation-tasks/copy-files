@@ -1,4 +1,4 @@
-name: Replicate push
+name: Replicat PUSH
 
 on:
   workflow_dispatch:
@@ -96,16 +96,16 @@ jobs:
               continue
             fi
 
-            # Create a temporary directory to copy and rename "push" files
+            # Create a temporary directory to copy only "push" files
             mkdir -p ../tekton_copy_$repo_name
 
-            # Find and copy only "push" files, renaming them
+            # Find and copy only "push" files (e.g., files containing "push" in their name)
             for file in .tekton/*push*.yaml; do
               if [ -f "$file" ]; then
-                # Extract the filename without path
-                base_filename=$(basename "$file")
-                # Rename file to include version (e.g., myfile-push.yaml -> myfile-vx.y.z-push.yaml)
-                new_filename=$(echo "$base_filename" | sed "s/push/v${major}.${minor}.${patch}-push/")
+                # Rename the file based on a pattern
+                # Example: rename push.yaml to push-<branch>.yaml
+                filename=$(basename "$file")
+                new_filename="${filename%.yaml}-$SOURCE_BRANCH.yaml"
                 cp "$file" "../tekton_copy_$repo_name/$new_filename"
               fi
             done
@@ -118,12 +118,12 @@ jobs:
 
             echo "Checked out branch $TARGET_BRANCH"
 
-            # Copy the renamed "push" files to the target branch's .tekton directory
+            # Copy the renamed files to the target branch's .tekton directory
             mkdir -p .tekton
             cp -r ../tekton_copy_$repo_name/* .tekton/
 
             # Update version and references in the "push" Tekton files
-            for file in .tekton/*v${major}.${minor}.${patch}-push*.yaml; do
+            for file in .tekton/*push*.yaml; do
               if [ -f "$file" ]; then
                 # Replace version references (e.g., v2.13 or v2-13) to match the input version (e.g., v2.15.0)
                 sed -i "s/\bv[0-9]\+\.[0-9]\+\.[0-9]\+\b/$VERSION/g" "$file"
