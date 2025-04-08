@@ -100,7 +100,8 @@ jobs:
             mkdir -p ../tekton_copy_$repo_name
 
             # Find and copy only "push" files (e.g., files containing "push" in their name)
-            for file in .tekton/*push*.yaml; do
+            #for file in .tekton/*push*.yaml; do
+            for file in .tekton/*push*.yaml .tekton/*-scheduled.yaml; do
               if [ -f "$file" ]; then
                 file_name=$(basename "$file")
                 new_file_name=$(echo "$file_name" | sed "s/[0-9]\+-[0-9]\+/${major}-${minor}/g" | sed "s/v[0-9]*\.[0-9]*\.[0-9]*/$VERSION/")
