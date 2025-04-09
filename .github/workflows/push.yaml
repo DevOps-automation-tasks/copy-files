@@ -128,7 +128,8 @@ jobs:
             cp -r ../tekton_copy_$repo_name/* .tekton/
 
             # Update version and references in the "push" Tekton files
-            for file in .tekton/*push*.yaml; do
+            #for file in .tekton/*push*.yaml; do
+            for file in .tekton/*push*.yaml .tekton/*-scheduled.yaml; do
               if [ -f "$file" ]; then
                 # Replace version references (e.g., v2.13 or v2-13) to match the input version (e.g., v2.15.0)
                 sed -i "s/\bv[0-9]\+\.[0-9]\+\.[0-9]\+\b/$VERSION/g" "$file"
